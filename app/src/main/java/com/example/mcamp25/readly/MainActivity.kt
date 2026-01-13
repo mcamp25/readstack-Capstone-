@@ -14,7 +14,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -32,7 +31,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            ReadlyTheme {
+            ReadlyTheme(dynamicColor = false) {
                 val navController = rememberNavController()
                 val items = listOf(
                     BottomNavigationItem("Search", Destination.Search, Icons.Default.Search),
@@ -44,7 +43,10 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
-                        NavigationBar {
+                        NavigationBar(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ) {
                             val navBackStackEntry by navController.currentBackStackEntryAsState()
                             val currentDestination = navBackStackEntry?.destination
                             items.forEach { item ->
@@ -52,6 +54,13 @@ class MainActivity : ComponentActivity() {
                                     icon = { Icon(item.icon, contentDescription = item.label) },
                                     label = { Text(item.label) },
                                     selected = currentDestination?.hierarchy?.any { it.hasRoute(item.destination::class) } == true,
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        unselectedIconColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                                        unselectedTextColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                                    ),
                                     onClick = {
                                         navController.navigate(item.destination) {
                                             popUpTo(navController.graph.findStartDestination().id) {

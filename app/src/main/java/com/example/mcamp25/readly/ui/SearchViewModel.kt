@@ -1,31 +1,31 @@
 package com.example.mcamp25.readly.ui
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.mcamp25.readly.data.RetrofitClient
 import com.example.mcamp25.readly.ui.theme.SearchUiState
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.IOException
 
 class SearchViewModel : ViewModel() {
-    var searchUiState: SearchUiState by mutableStateOf(SearchUiState.Idle)
-        private set
+    private val _searchUiState = MutableStateFlow<SearchUiState>(SearchUiState.Idle)
+    val searchUiState: StateFlow<SearchUiState> = _searchUiState.asStateFlow()
 
-    fun searchBooks(query: String ) {
+    fun searchBooks(query: String) {
         if (query.isBlank()) return
         
         viewModelScope.launch {
-            searchUiState = SearchUiState.Loading
-            searchUiState = try {
+            _searchUiState.value = SearchUiState.Loading
+            try {
                 val result = RetrofitClient.apiService.searchBooks(query)
-                SearchUiState.Success(result.items ?: emptyList())
+                _searchUiState.value = SearchUiState.Success(result.items ?: emptyList())
             } catch (_: IOException) {
-                SearchUiState.Error
+                _searchUiState.value = SearchUiState.Error
             } catch (_: Exception) {
-                SearchUiState.Error
+                _searchUiState.value = SearchUiState.Error
             }
         }
     }

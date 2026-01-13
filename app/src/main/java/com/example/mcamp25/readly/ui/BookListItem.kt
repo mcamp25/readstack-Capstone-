@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -25,8 +26,8 @@ fun SearchScreen(
     onBookClick: (BookItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var query by remember { mutableStateOf("") }
-    val uiState = viewModel.searchUiState
+    var query by rememberSaveable { mutableStateOf("") }
+    val uiState by viewModel.searchUiState.collectAsState()
 
     Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
         OutlinedTextField(
@@ -45,7 +46,7 @@ fun SearchScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        when (uiState) {
+        when (val state = uiState) {
             is SearchUiState.Idle -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Search for books to see results")
@@ -53,12 +54,12 @@ fun SearchScreen(
             }
             is SearchUiState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
                 }
             }
             is SearchUiState.Success -> {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(uiState.books) { book ->
+                    items(state.books) { book ->
                         BookListItem(
                             book = book,
                             onClick = { onBookClick(book) }
@@ -67,7 +68,9 @@ fun SearchScreen(
                 }
             }
             is SearchUiState.Error -> {
-                Text("Error fetching books. Please try again.", color = MaterialTheme.colorScheme.error)
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Error fetching books. Please try again.", color = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
