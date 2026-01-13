@@ -4,9 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Search
@@ -16,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -25,9 +24,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import com.example.mcamp25.readly.ui.Destination
-import com.example.mcamp25.readly.ui.SearchScreen
-import com.example.mcamp25.readly.ui.SearchViewModel
+import com.example.mcamp25.readly.ui.*
 import com.example.mcamp25.readly.ui.theme.ReadlyTheme
 
 class MainActivity : ComponentActivity() {
@@ -76,14 +73,22 @@ class MainActivity : ComponentActivity() {
                     ) {
                         composable<Destination.Search> {
                             val viewModel: SearchViewModel = viewModel()
-                            SearchScreen(viewModel = viewModel)
+                            SearchScreen(
+                                viewModel = viewModel,
+                                onBookClick = { book ->
+                                    navController.navigate(Destination.BookDetail(book.id))
+                                }
+                            )
                         }
                         composable<Destination.ReadingList> {
                             ReadingListScreen()
                         }
                         composable<Destination.BookDetail> { backStackEntry ->
                             val bookDetail: Destination.BookDetail = backStackEntry.toRoute()
-                            BookDetailScreen(bookId = bookDetail.bookId)
+                            BookDetailScreen(
+                                bookId = bookDetail.bookId,
+                                onBackClick = { navController.popBackStack() }
+                            )
                         }
                     }
                 }
@@ -102,12 +107,5 @@ data class BottomNavigationItem(
 fun ReadingListScreen() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text("Reading List Screen")
-    }
-}
-
-@Composable
-fun BookDetailScreen(bookId: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Book Detail Screen for ID: $bookId")
     }
 }

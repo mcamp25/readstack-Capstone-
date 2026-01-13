@@ -20,7 +20,11 @@ import com.example.mcamp25.readly.ui.theme.SearchUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchScreen(viewModel: SearchViewModel, modifier: Modifier = Modifier) {
+fun SearchScreen(
+    viewModel: SearchViewModel,
+    onBookClick: (BookItem) -> Unit,
+    modifier: Modifier = Modifier
+) {
     var query by remember { mutableStateOf("") }
     val uiState = viewModel.searchUiState
 
@@ -55,7 +59,10 @@ fun SearchScreen(viewModel: SearchViewModel, modifier: Modifier = Modifier) {
             is SearchUiState.Success -> {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(uiState.books) { book ->
-                        BookListItem(book = book)
+                        BookListItem(
+                            book = book,
+                            onClick = { onBookClick(book) }
+                        )
                     }
                 }
             }
@@ -67,8 +74,9 @@ fun SearchScreen(viewModel: SearchViewModel, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun BookListItem(book: BookItem, modifier: Modifier = Modifier) {
+fun BookListItem(book: BookItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
+        onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
