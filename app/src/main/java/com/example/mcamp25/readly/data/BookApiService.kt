@@ -1,6 +1,7 @@
 package com.example.mcamp25.readly.data
 
 import retrofit2.http.GET
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface BookApiService {
@@ -9,4 +10,9 @@ interface BookApiService {
         @Query("q") query: String,
         @Query("maxResults") maxResults: Int = 40
     ): BookResponse
+
+    @GET("volumes/{id}")
+    suspend fun getBook(
+        @Path("id") id: String
+    ): BookItem
 }

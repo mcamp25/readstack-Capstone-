@@ -53,7 +53,8 @@ class MainActivity : ComponentActivity() {
                                 NavigationBarItem(
                                     icon = { Icon(item.icon, contentDescription = item.label) },
                                     label = { Text(item.label) },
-                                    selected = currentDestination?.hierarchy?.any { it.hasRoute(item.destination::class) } == true,
+                                    selected = currentDestination?.hierarchy?.any { it.hasRoute(item.destination::class) } == true ||
+                                            (item.destination is Destination.Search && currentDestination?.hierarchy?.any { it.hasRoute(Destination.BookDetail::class) } == true),
                                     colors = NavigationBarItemDefaults.colors(
                                         selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
                                         selectedTextColor = MaterialTheme.colorScheme.onPrimary,
@@ -94,8 +95,10 @@ class MainActivity : ComponentActivity() {
                         }
                         composable<Destination.BookDetail> { backStackEntry ->
                             val bookDetail: Destination.BookDetail = backStackEntry.toRoute()
+                            val viewModel: BookDetailViewModel = viewModel()
                             BookDetailScreen(
                                 bookId = bookDetail.bookId,
+                                viewModel = viewModel,
                                 onBackClick = { navController.popBackStack() }
                             )
                         }
