@@ -227,7 +227,7 @@ fun ReadingListScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item { Spacer(modifier = Modifier.height(8.dp)) }
-                items(books) { book ->
+                items(books, key = { it.id }) { book ->
                     LocalBookListItem(
                         book = book,
                         onClick = { onBookClick(book.id) },
@@ -253,15 +253,22 @@ fun LocalBookListItem(
         android.text.Html.fromHtml(book.description, android.text.Html.FROM_HTML_MODE_COMPACT).toString()
     }
 
-    Card(
+    ElevatedCard(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 4.dp,
+            pressedElevation = 8.dp
+        ),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        )
     ) {
         Row(
             modifier = Modifier
-                .padding(8.dp)
-                .height(130.dp),
+                .padding(12.dp)
+                .height(intrinsicSize = IntrinsicSize.Min),
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(
@@ -271,9 +278,10 @@ fun LocalBookListItem(
                     .build(),
                 contentDescription = book.title,
                 modifier = Modifier
-                    .width(80.dp)
-                    .fillMaxHeight(),
-                contentScale = ContentScale.FillBounds,
+                    .width(90.dp)
+                    .height(130.dp)
+                    .padding(end = 4.dp),
+                contentScale = ContentScale.Crop,
                 error = painterResource(id = android.R.drawable.ic_menu_report_image),
                 placeholder = painterResource(id = android.R.drawable.ic_menu_gallery)
             )
@@ -305,8 +313,14 @@ fun LocalBookListItem(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete")
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.align(Alignment.Top)
+            ) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = MaterialTheme.colorScheme.error)
             }
         }
     }
