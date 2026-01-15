@@ -1,4 +1,4 @@
-package com.example.mcamp25.readly.data
+package com.example.mcamp25.readly.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase

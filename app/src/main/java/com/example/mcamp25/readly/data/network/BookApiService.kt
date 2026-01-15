@@ -1,4 +1,4 @@
-package com.example.mcamp25.readly.data
+package com.example.mcamp25.readly.data.network
 
 import retrofit2.http.GET
 import retrofit2.http.Path

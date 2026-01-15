@@ -1,4 +1,4 @@
-package com.example.mcamp25.readly.data
+package com.example.mcamp25.readly.data.local
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

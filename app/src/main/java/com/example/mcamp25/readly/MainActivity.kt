@@ -1,9 +1,13 @@
 package com.example.mcamp25.readly
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,6 +18,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -29,6 +34,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -38,15 +44,31 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import androidx.work.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.mcamp25.readly.data.BookEntity
-import com.example.mcamp25.readly.ui.*
+import com.example.mcamp25.readly.data.local.BookEntity
+import com.example.mcamp25.readly.data.worker.LibrarySyncWorker
+import com.example.mcamp25.readly.ui.navigation.Destination
+import com.example.mcamp25.readly.ui.screens.detail.BookDetailScreen
+import com.example.mcamp25.readly.ui.screens.detail.BookDetailViewModel
+import com.example.mcamp25.readly.ui.screens.list.ReadingListViewModel
+import com.example.mcamp25.readly.ui.screens.search.SearchScreen
+import com.example.mcamp25.readly.ui.screens.search.SearchViewModel
 import com.example.mcamp25.readly.ui.theme.ReadlyTheme
 
 class MainActivity : ComponentActivity() {
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        // Handle permission result if needed
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        checkNotificationPermission()
+        
         enableEdgeToEdge()
         setContent {
             ReadlyTheme(dynamicColor = false) {
@@ -72,7 +94,8 @@ class MainActivity : ComponentActivity() {
                                     icon = { Icon(item.icon, contentDescription = item.label) },
                                     label = { Text(item.label) },
                                     selected = currentDestination?.hierarchy?.any { it.hasRoute(item.destination::class) } == true ||
-                                            (item.destination is Destination.Search && currentDestination?.hierarchy?.any { it.hasRoute(Destination.BookDetail::class) } == true),
+                                            (item.destination is Destination.Search && currentDestination?.hierarchy?.any { it.hasRoute(
+                                                Destination.BookDetail::class) } == true),
                                     colors = NavigationBarItemDefaults.colors(
                                         selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
                                         selectedTextColor = MaterialTheme.colorScheme.onPrimary,
@@ -114,7 +137,8 @@ class MainActivity : ComponentActivity() {
                                 viewModel = viewModel,
                                 onBookClick = { bookId ->
                                     navController.navigate(Destination.BookDetail(bookId))
-                                }
+                                },
+                                onSyncClick = { scheduleLibrarySync() }
                             )
                         }
                         composable<Destination.BookDetail> { backStackEntry ->
@@ -131,6 +155,26 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    private fun checkNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED) {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
+    fun scheduleLibrarySync() {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val immediateRequest = OneTimeWorkRequestBuilder<LibrarySyncWorker>()
+            .setConstraints(constraints)
+            .build()
+        WorkManager.getInstance(applicationContext).enqueue(immediateRequest)
+    }
 }
 
 data class BottomNavigationItem(
@@ -139,29 +183,59 @@ data class BottomNavigationItem(
     val icon: ImageVector
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReadingListScreen(
     viewModel: ReadingListViewModel,
-    onBookClick: (String) -> Unit
+    onBookClick: (String) -> Unit,
+    onSyncClick: () -> Unit
 ) {
     val books by viewModel.readingList.collectAsState()
 
-    if (books.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Your reading list is empty")
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Reading List") },
+                actions = {
+                    FilledIconButton(
+                        onClick = onSyncClick,
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .size(48.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Sync,
+                            contentDescription = "Sync Library",
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+            )
         }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(books) { book ->
-                LocalBookListItem(
-                    book = book,
-                    onClick = { onBookClick(book.id) },
-                    onDelete = { viewModel.removeFromReadingList(book) },
-                    onRatingChanged = { newRating -> viewModel.updateRating(book.id, newRating) }
-                )
+    ) { innerPadding ->
+        if (books.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                Text("Your reading list is empty")
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+                items(books) { book ->
+                    LocalBookListItem(
+                        book = book,
+                        onClick = { onBookClick(book.id) },
+                        onDelete = { viewModel.removeFromReadingList(book) },
+                        onRatingChanged = { newRating -> viewModel.updateRating(book.id, newRating) }
+                    )
+                }
+                item { Spacer(modifier = Modifier.height(8.dp)) }
             }
         }
     }
@@ -175,7 +249,6 @@ fun LocalBookListItem(
     onRatingChanged: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Strip HTML tags for cleaner display
     val cleanDescription = remember(book.description) {
         android.text.Html.fromHtml(book.description, android.text.Html.FROM_HTML_MODE_COMPACT).toString()
     }

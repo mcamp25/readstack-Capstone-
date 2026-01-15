@@ -1,6 +1,6 @@
-package com.example.mcamp25.readly.ui.theme
+package com.example.mcamp25.readly.ui.screens.search
 
-import com.example.mcamp25.readly.data.BookItem
+import com.example.mcamp25.readly.data.network.BookItem
 
 sealed interface SearchUiState {
     object Idle : SearchUiState

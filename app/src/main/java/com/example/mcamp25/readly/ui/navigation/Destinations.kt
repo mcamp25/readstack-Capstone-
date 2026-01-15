@@ -1,4 +1,4 @@
-package com.example.mcamp25.readly.ui
+package com.example.mcamp25.readly.ui.navigation
 
 import kotlinx.serialization.Serializable
 

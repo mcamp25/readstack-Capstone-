@@ -1,9 +1,9 @@
-package com.example.mcamp25.readly.ui
+package com.example.mcamp25.readly.ui.screens.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.mcamp25.readly.data.RetrofitClient
-import com.example.mcamp25.readly.ui.theme.SearchUiState
+import com.example.mcamp25.readly.ui.screens.search.SearchUiState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,7 +16,7 @@ class SearchViewModel : ViewModel() {
 
     fun searchBooks(query: String) {
         if (query.isBlank()) return
-        
+
         viewModelScope.launch {
             _searchUiState.value = SearchUiState.Loading
             try {

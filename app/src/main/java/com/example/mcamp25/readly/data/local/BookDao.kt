@@ -1,6 +1,10 @@
-package com.example.mcamp25.readly.data
+package com.example.mcamp25.readly.data.local
 
-import androidx.room.*
+import androidx.room.Dao
+import androidx.room.Delete
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -12,10 +16,10 @@ interface BookDao {
     fun getAllBooks(): Flow<List<BookEntity>>
 
     @Query("UPDATE books SET rating = :rating WHERE id = :bookId")
-    suspend fun updateRating(bookId: String, rating: Int)
+    suspend fun updateRating(bookId: String, rating: Int): Int
 
     @Query("SELECT rating FROM books WHERE id = :bookId")
-    fun getRating(bookId: String): Flow<Int>
+    fun getRating(bookId: String): Flow<Int?>
 
     @Delete
     suspend fun deleteBook(book: BookEntity)

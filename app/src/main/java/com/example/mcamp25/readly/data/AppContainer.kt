@@ -1,5 +1,6 @@
 package com.example.mcamp25.readly.data
 
+import com.example.mcamp25.readly.data.network.BookApiService
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient

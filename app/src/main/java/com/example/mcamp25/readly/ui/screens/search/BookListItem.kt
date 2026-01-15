@@ -1,5 +1,6 @@
-package com.example.mcamp25.readly.ui
+package com.example.mcamp25.readly.ui.screens.search
 
+import android.text.Html
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,8 +27,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.mcamp25.readly.data.BookItem
-import com.example.mcamp25.readly.ui.theme.SearchUiState
+import com.example.mcamp25.readly.data.network.BookItem
+import com.example.mcamp25.readly.ui.screens.search.SearchUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -143,7 +144,7 @@ fun BookListItem(book: BookItem, onClick: () -> Unit, modifier: Modifier = Modif
     // Strip HTML tags for cleaner display
     val cleanDescription = remember(book.volumeInfo.description) {
         book.volumeInfo.description?.let {
-            android.text.Html.fromHtml(it, android.text.Html.FROM_HTML_MODE_COMPACT).toString()
+            Html.fromHtml(it, Html.FROM_HTML_MODE_COMPACT).toString()
         } ?: ""
     }
 

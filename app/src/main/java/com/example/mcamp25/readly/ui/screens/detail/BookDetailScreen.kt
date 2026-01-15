@@ -1,5 +1,6 @@
-package com.example.mcamp25.readly.ui
+package com.example.mcamp25.readly.ui.screens.detail
 
+import android.text.Html
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -18,6 +19,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -30,7 +32,7 @@ fun BookDetailScreen(
     onBackClick: () -> Unit
 ) {
     val uiState = viewModel.uiState
-    val currentRating by viewModel.getRating(bookId).collectAsState(initial = 0)
+    val currentRating = viewModel.currentRating
 
     LaunchedEffect(bookId) {
         viewModel.getBook(bookId)
@@ -112,7 +114,7 @@ fun BookDetailScreen(
                             text = book.volumeInfo.title,
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            textAlign = TextAlign.Center
                         )
                         Text(
                             text = book.volumeInfo.authors?.joinToString(", ") ?: "Unknown Author",
@@ -121,8 +123,8 @@ fun BookDetailScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = android.text.Html.fromHtml(book.volumeInfo.description ?: "No description available",
-                                android.text.Html.FROM_HTML_MODE_COMPACT).toString(),
+                            text = Html.fromHtml(book.volumeInfo.description ?: "No description available",
+                                Html.FROM_HTML_MODE_COMPACT).toString(),
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }

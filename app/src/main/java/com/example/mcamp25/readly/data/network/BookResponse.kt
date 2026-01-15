@@ -1,4 +1,4 @@
-package com.example.mcamp25.readly.data
+package com.example.mcamp25.readly.data.network
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
