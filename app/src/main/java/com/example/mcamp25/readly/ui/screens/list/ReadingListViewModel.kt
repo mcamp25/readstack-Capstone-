@@ -29,6 +29,12 @@ class ReadingListViewModel(private val bookDao: BookDao) : ViewModel() {
         }
     }
 
+    fun addBook(book: BookEntity) {
+        viewModelScope.launch {
+            bookDao.insert(book)
+        }
+    }
+
     fun updateRating(bookId: String, rating: Int) {
         viewModelScope.launch {
             bookDao.updateRating(bookId, rating)

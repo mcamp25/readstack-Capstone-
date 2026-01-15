@@ -1,6 +1,7 @@
 package com.example.mcamp25.readly
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -8,6 +9,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,15 +19,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -56,6 +58,8 @@ import com.example.mcamp25.readly.ui.screens.list.ReadingListViewModel
 import com.example.mcamp25.readly.ui.screens.search.SearchScreen
 import com.example.mcamp25.readly.ui.screens.search.SearchViewModel
 import com.example.mcamp25.readly.ui.theme.ReadlyTheme
+import kotlinx.coroutines.launch
+
 
 class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
@@ -73,6 +77,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             ReadlyTheme(dynamicColor = false) {
                 val navController = rememberNavController()
+                val snackbarHostState = remember { SnackbarHostState() }
+                val scope = rememberCoroutineScope()
+                
                 val items = listOf(
                     BottomNavigationItem("Search", Destination.Search, Icons.Default.Search),
                     BottomNavigationItem("Reading List", Destination.ReadingList,
@@ -82,6 +89,7 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
+                    snackbarHost = { SnackbarHost(snackbarHostState) },
                     bottomBar = {
                         NavigationBar(
                             containerColor = MaterialTheme.colorScheme.primary,
@@ -120,7 +128,11 @@ class MainActivity : ComponentActivity() {
                     NavHost(
                         navController = navController,
                         startDestination = Destination.Search,
-                        modifier = Modifier.padding(innerPadding)
+                        modifier = Modifier.padding(innerPadding),
+                        enterTransition = { fadeIn(animationSpec = tween(400)) },
+                        exitTransition = { fadeOut(animationSpec = tween(400)) },
+                        popEnterTransition = { fadeIn(animationSpec = tween(400)) },
+                        popExitTransition = { fadeOut(animationSpec = tween(400)) }
                     ) {
                         composable<Destination.Search> {
                             val viewModel: SearchViewModel = viewModel()
@@ -138,7 +150,24 @@ class MainActivity : ComponentActivity() {
                                 onBookClick = { bookId ->
                                     navController.navigate(Destination.BookDetail(bookId))
                                 },
-                                onSyncClick = { scheduleLibrarySync() }
+                                onSyncClick = { 
+                                    scheduleLibrarySync()
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Library sync started")
+                                    }
+                                },
+                                onBookDeleted = { book ->
+                                    scope.launch {
+                                        val result = snackbarHostState.showSnackbar(
+                                            message = "Removed ${book.title} from reading list",
+                                            actionLabel = "Undo",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                        if (result == SnackbarResult.ActionPerformed) {
+                                            viewModel.addBook(book)
+                                        }
+                                    }
+                                }
                             )
                         }
                         composable<Destination.BookDetail> { backStackEntry ->
@@ -188,7 +217,8 @@ data class BottomNavigationItem(
 fun ReadingListScreen(
     viewModel: ReadingListViewModel,
     onBookClick: (String) -> Unit,
-    onSyncClick: () -> Unit
+    onSyncClick: () -> Unit,
+    onBookDeleted: (BookEntity) -> Unit
 ) {
     val books by viewModel.readingList.collectAsState()
 
@@ -231,7 +261,10 @@ fun ReadingListScreen(
                     LocalBookListItem(
                         book = book,
                         onClick = { onBookClick(book.id) },
-                        onDelete = { viewModel.removeFromReadingList(book) },
+                        onDelete = { 
+                            viewModel.removeFromReadingList(book)
+                            onBookDeleted(book)
+                        },
                         onRatingChanged = { newRating -> viewModel.updateRating(book.id, newRating) }
                     )
                 }
@@ -249,6 +282,7 @@ fun LocalBookListItem(
     onRatingChanged: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val cleanDescription = remember(book.description) {
         android.text.Html.fromHtml(book.description, android.text.Html.FROM_HTML_MODE_COMPACT).toString()
     }
@@ -313,14 +347,29 @@ fun LocalBookListItem(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.align(Alignment.Top)
-            ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error)
+            Column(modifier = Modifier.align(Alignment.Top)) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+                IconButton(
+                    onClick = {
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, "Check out \"${book.title}\" by ${book.author}!")
+                        }
+                        context.startActivity(Intent.createChooser(shareIntent, "Share Book"))
+                    }
+                ) {
+                    Icon(
+                        Icons.Default.Share,
+                        contentDescription = "Share",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
     }
