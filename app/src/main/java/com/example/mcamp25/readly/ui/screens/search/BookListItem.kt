@@ -1,12 +1,17 @@
 package com.example.mcamp25.readly.ui.screens.search
 
+import android.net.Uri
 import android.text.Html
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -14,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
@@ -28,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.mcamp25.readly.data.network.BookItem
-import com.example.mcamp25.readly.ui.screens.search.SearchUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,16 +42,46 @@ fun SearchScreen(
     onBookClick: (BookItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var query by rememberSaveable { mutableStateOf("") }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     val uiState by viewModel.searchUiState.collectAsState()
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract  = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { selectedUri ->
+            selectedImageUri = selectedUri
+            viewModel.handleImportedFile(selectedUri)
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
             placeholder = { Text("Search Books") },
+            leadingIcon = {
+                IconButton(onClick = { filePickerLauncher.launch("image/*") }) {
+                    if (selectedImageUri != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(selectedImageUri)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Selected Image",
+                            modifier = Modifier.size(24.dp).clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Upload Image"
+                        )
+                    }
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester),
@@ -54,7 +89,11 @@ fun SearchScreen(
             trailingIcon = {
                 FilledIconButton(
                     onClick = {
-                        viewModel.searchBooks(query)
+                        if (selectedImageUri != null) {
+                            viewModel.searchByImage(context, selectedImageUri!!)
+                        } else if (query.isNotBlank()) {
+                            viewModel.searchBooks(query)
+                        }
                         keyboardController?.hide()
                     },
                     modifier = Modifier.padding(end = 4.dp),
@@ -72,7 +111,11 @@ fun SearchScreen(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(
                 onSearch = {
-                    viewModel.searchBooks(query)
+                    if (selectedImageUri != null) {
+                        viewModel.searchByImage(context, selectedImageUri!!)
+                    } else if (query.isNotBlank()) {
+                        viewModel.searchBooks(query)
+                    }
                     keyboardController?.hide()
                 }
             ),
@@ -125,7 +168,12 @@ fun SearchScreen(
                     items(state.books) { book ->
                         BookListItem(
                             book = book,
-                            onClick = { onBookClick(book) }
+                            onClick = {
+                                onBookClick(book)
+                                query = ""
+                                selectedImageUri = null
+                                viewModel.resetSearch()
+                            }
                         )
                     }
                 }

@@ -21,9 +21,9 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 
 sealed interface BookDetailUiState {
-    object Loading : BookDetailUiState
+    data object Loading : BookDetailUiState
     data class Success(val book: BookItem) : BookDetailUiState
-    object Error : BookDetailUiState
+    data object Error : BookDetailUiState
 }
 
 class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {

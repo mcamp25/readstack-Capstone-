@@ -20,19 +20,21 @@ class LibrarySyncWorker(
                 makeStatusNotification("Syncing library...", applicationContext)
                 
                 val database = (applicationContext as ReadlyApplication).database
-                val books = database.bookDao().getAllBooks().first()
-                Log.d("LibrarySyncWorker", "Syncing library with ${books.size} books")
+                val bookDao = database.bookDao()
+                val localBooks = bookDao.getAllBooks().first()
                 
-                // Simulate some work
-                kotlinx.coroutines.delay(2000)
+                Log.d("LibrarySyncWorker", "Found ${localBooks.size} local books to sync")
+                
+                // Simulate work
+                kotlinx.coroutines.delay(3000)
                 
                 // Show success notification
                 makeStatusNotification("Library synced successfully!", applicationContext)
                 
                 Result.success()
             } catch (e: Exception) {
-                Log.e("LibrarySyncWorker", "Error syncing library", e)
-                makeStatusNotification("Failed to sync library.", applicationContext)
+                Log.e("LibrarySyncWorker", "Error during library sync", e)
+                makeStatusNotification("Sync failed. Check your connection.", applicationContext)
                 Result.failure()
             }
         }
