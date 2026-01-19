@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.mcamp25.readly.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +68,8 @@ fun BookDetailScreen(
                 }
                 is BookDetailUiState.Success -> {
                     val book = uiState.book
+                    val noCoverPainter = painterResource(id = R.drawable.no_cover)
+                    
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -84,7 +87,8 @@ fun BookDetailScreen(
                                 .height(250.dp)
                                 .width(180.dp),
                             contentScale = ContentScale.FillBounds,
-                            error = painterResource(id = android.R.drawable.ic_menu_report_image),
+                            error = noCoverPainter,
+                            fallback = noCoverPainter,
                             placeholder = painterResource(id = android.R.drawable.ic_menu_gallery)
                         )
                         Spacer(modifier = Modifier.height(16.dp))

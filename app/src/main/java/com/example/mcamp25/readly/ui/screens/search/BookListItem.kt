@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -13,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.mcamp25.readly.data.network.BookItem
+import com.example.mcamp25.readly.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,10 +47,28 @@ fun SearchScreen(
 ) {
     val context = LocalContext.current
     var query by rememberSaveable { mutableStateOf("") }
+    var selectedGenre by remember { mutableStateOf<String?>(null) }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     val uiState by viewModel.searchUiState.collectAsState()
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    val performSearch = {
+        val combinedQuery = buildString {
+            if (query.isNotBlank()) append(query)
+            if (selectedGenre != null) {
+                if (isNotEmpty()) append(" ")
+                val subject = if (selectedGenre == "Sci-Fi") "Science Fiction" else selectedGenre
+                append("subject:\"$subject\"")
+            }
+        }
+        if (combinedQuery.isNotBlank()) {
+            viewModel.searchBooks(combinedQuery)
+        } else {
+            viewModel.resetSearch()
+        }
+    }
+
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract  = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -91,8 +112,8 @@ fun SearchScreen(
                     onClick = {
                         if (selectedImageUri != null) {
                             viewModel.searchByImage(context, selectedImageUri!!)
-                        } else if (query.isNotBlank()) {
-                            viewModel.searchBooks(query)
+                        } else {
+                            performSearch()
                         }
                         keyboardController?.hide()
                     },
@@ -113,8 +134,8 @@ fun SearchScreen(
                 onSearch = {
                     if (selectedImageUri != null) {
                         viewModel.searchByImage(context, selectedImageUri!!)
-                    } else if (query.isNotBlank()) {
-                        viewModel.searchBooks(query)
+                    } else {
+                        performSearch()
                     }
                     keyboardController?.hide()
                 }
@@ -126,7 +147,17 @@ fun SearchScreen(
             )
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        GenreFilterRow(
+            selectedGenre = selectedGenre,
+            onGenreSelected = { genre ->
+                selectedGenre = genre
+                performSearch()
+            }
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         when (val state = uiState) {
             is SearchUiState.Idle -> {
@@ -171,6 +202,7 @@ fun SearchScreen(
                             onClick = {
                                 onBookClick(book)
                                 query = ""
+                                selectedGenre = null
                                 selectedImageUri = null
                                 viewModel.resetSearch()
                             }
@@ -187,6 +219,43 @@ fun SearchScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GenreFilterRow(
+    selectedGenre: String?,
+    onGenreSelected: (String?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val genres = listOf("Fiction", "Mystery", "Fantasy", "Sci-Fi", "History", "Romance")
+
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = 4.dp),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        items(genres) { genre ->
+            FilterChip(
+                selected = selectedGenre == genre,
+                onClick = {
+                    if (selectedGenre == genre) onGenreSelected(null)
+                    else onGenreSelected(genre)
+                },
+                label = { Text(genre) },
+                leadingIcon = if (selectedGenre == genre) {
+                    {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(FilterChipDefaults.IconSize)
+                        )
+                    }
+                } else null,
+                shape = MaterialTheme.shapes.medium
+            )
+        }
+    }
+}
+
 @Composable
 fun BookListItem(book: BookItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
     // Strip HTML tags for cleaner display
@@ -195,6 +264,8 @@ fun BookListItem(book: BookItem, onClick: () -> Unit, modifier: Modifier = Modif
             Html.fromHtml(it, Html.FROM_HTML_MODE_COMPACT).toString()
         } ?: ""
     }
+
+    val noCoverPainter = painterResource(id = R.drawable.no_cover)
 
     Card(
         onClick = onClick,
@@ -217,7 +288,8 @@ fun BookListItem(book: BookItem, onClick: () -> Unit, modifier: Modifier = Modif
                     .width(80.dp)
                     .fillMaxHeight(),
                 contentScale = ContentScale.FillBounds,
-                error = painterResource(id = android.R.drawable.ic_menu_report_image),
+                error = noCoverPainter,
+                fallback = noCoverPainter,
                 placeholder = painterResource(id = android.R.drawable.ic_menu_gallery)
             )
             Spacer(modifier = Modifier.width(16.dp))
