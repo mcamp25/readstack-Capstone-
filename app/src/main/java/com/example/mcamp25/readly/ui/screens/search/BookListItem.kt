@@ -32,6 +32,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -198,7 +203,8 @@ fun SearchScreen(
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(state.books) { book ->
                         BookListItem(
-                            book = book,
+                            book = book, 
+                            query = query,
                             onClick = {
                                 onBookClick(book)
                                 query = ""
@@ -257,7 +263,7 @@ fun GenreFilterRow(
 }
 
 @Composable
-fun BookListItem(book: BookItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun BookListItem(book: BookItem, query: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     // Strip HTML tags for cleaner display
     val cleanDescription = remember(book.volumeInfo.description) {
         book.volumeInfo.description?.let {
@@ -266,6 +272,17 @@ fun BookListItem(book: BookItem, onClick: () -> Unit, modifier: Modifier = Modif
     }
 
     val noCoverPainter = painterResource(id = R.drawable.no_cover)
+ 
+    // Muted Rust Orange: High contrast against Teal, but less intense than pure Coral
+    val highlightColor = Color(0xFFD35400)
+    
+    val highlightedTitle = remember(book.volumeInfo.title, query, highlightColor) {
+        getHighlightedText(
+            text = book.volumeInfo.title,
+            query = query,
+            color = highlightColor
+        )
+    }
 
     Card(
         onClick = onClick,
@@ -295,9 +312,10 @@ fun BookListItem(book: BookItem, onClick: () -> Unit, modifier: Modifier = Modif
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(
-                    text = book.volumeInfo.title,
+                    text = highlightedTitle,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    // Normal weight makes the Black highlighted text pop more
+                    fontWeight = FontWeight.Normal,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -315,6 +333,30 @@ fun BookListItem(book: BookItem, onClick: () -> Unit, modifier: Modifier = Modif
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+    }
+}
+
+/**
+ * Returns an AnnotatedString with search matches bolded and colored.
+ */
+fun getHighlightedText(text: String, query: String, color: Color): AnnotatedString {
+    return buildAnnotatedString {
+        val lowerText = text.lowercase()
+        val lowerQuery = query.lowercase()
+        var start = 0
+        while (start < text.length) {
+            val index = lowerText.indexOf(lowerQuery, start)
+            if (index == -1 || lowerQuery.isBlank()) {
+                append(text.substring(start))
+                break
+            }
+            append(text.substring(start, index))
+            // Use FontWeight.Black (the heaviest) for maximum physical pop
+            withStyle(SpanStyle(color = color, fontWeight = FontWeight.Black)) {
+                append(text.substring(index, index + query.length))
+            }
+            start = index + query.length
         }
     }
 }

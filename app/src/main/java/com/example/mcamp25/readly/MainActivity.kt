@@ -26,10 +26,11 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -62,6 +63,7 @@ import com.example.mcamp25.readly.ui.screens.list.ReadingListViewModel
 import com.example.mcamp25.readly.ui.screens.search.SearchScreen
 import com.example.mcamp25.readly.ui.screens.search.SearchViewModel
 import com.example.mcamp25.readly.ui.theme.ReadlyTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
@@ -233,6 +235,9 @@ fun ReadingListScreen(
     onBookDeleted: (BookEntity) -> Unit
 ) {
     val books by viewModel.readingList.collectAsState()
+    val isRefreshing = remember { mutableStateOf(false) }
+    val state = rememberPullToRefreshState()
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -244,7 +249,14 @@ fun ReadingListScreen(
                     title = { Text("Reading List") },
                     actions = {
                         FilledIconButton(
-                            onClick = onSyncClick,
+                            onClick = {
+                                onSyncClick()
+                                isRefreshing.value = true
+                                scope.launch {
+                                    delay(1500)
+                                    isRefreshing.value = false
+                                }
+                            },
                             modifier = Modifier
                                 .padding(end = 8.dp)
                                 .size(48.dp),
@@ -269,78 +281,91 @@ fun ReadingListScreen(
                 Text("Your reading list is empty")
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                item { Spacer(modifier = Modifier.height(8.dp)) }
-                items(books, key = { it.id }) { book ->
-                    var isVisible by remember { mutableStateOf(false) }
-                    LaunchedEffect(Unit) { isVisible = true }
-                    
-                    @Suppress("DEPRECATION")
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            if (value == SwipeToDismissBoxValue.EndToStart) {
-                                viewModel.removeFromReadingList(book)
-                                onBookDeleted(book)
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    )
-
-                    // RESET state if it was dismissed but the book is still here (Undo)
-                    LaunchedEffect(book) {
-                        if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
-                            dismissState.reset()
-                        }
+            PullToRefreshBox(
+                isRefreshing = isRefreshing.value,
+                state = state,
+                onRefresh = {
+                    isRefreshing.value = true
+                    onSyncClick()
+                    scope.launch {
+                        delay(1500)
+                        isRefreshing.value = false
                     }
-
-                    AnimatedVisibility(
-                        visible = isVisible,
-                        modifier = Modifier.animateItem(),
-                        enter = fadeIn(animationSpec = tween(500)) +
-                                slideInVertically(initialOffsetY = { it / 2 }),
-                        exit = fadeOut()
-                    ) {
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            enableDismissFromStartToEnd = false,
-                            backgroundContent = {
-                                val color = when (dismissState.targetValue) {
-                                    SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.errorContainer
-                                    else -> Color.Transparent
+                },
+                modifier = Modifier.padding(innerPadding)
+            ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item { Spacer(modifier = Modifier.height(8.dp)) }
+                    items(books, key = { it.id }) { book ->
+                        var isVisible by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) { isVisible = true }
+                        
+                        @Suppress("DEPRECATION")
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { value ->
+                                if (value == SwipeToDismissBoxValue.EndToStart) {
+                                    viewModel.removeFromReadingList(book)
+                                    onBookDeleted(book)
+                                    true
+                                } else {
+                                    false
                                 }
-                                if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(MaterialTheme.shapes.medium)
-                                            .background(color)
-                                            .padding(horizontal = 20.dp),
-                                        contentAlignment = Alignment.CenterEnd
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Delete,
-                                            contentDescription = "Delete",
-                                            tint = MaterialTheme.colorScheme.error
-                                        )
-                                    }
-                                }
-                            },
-                            content = {
-                                LocalBookListItem(
-                                    book = book,
-                                    onClick = { onBookClick(book.id) },
-                                    onRatingChanged = { newRating -> viewModel.updateRating(book.id, newRating) }
-                                )
                             }
                         )
+
+                        LaunchedEffect(book) {
+                            if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+                                dismissState.reset()
+                            }
+                        }
+
+                        AnimatedVisibility(
+                            visible = isVisible,
+                            modifier = Modifier.animateItem(),
+                            enter = fadeIn(animationSpec = tween(500)) +
+                                    slideInVertically(initialOffsetY = { it / 2 }),
+                            exit = fadeOut()
+                        ) {
+                            SwipeToDismissBox(
+                                state = dismissState,
+                                enableDismissFromStartToEnd = false,
+                                backgroundContent = {
+                                    val color = when (dismissState.targetValue) {
+                                        SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.errorContainer
+                                        else -> Color.Transparent
+                                    }
+                                    if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(MaterialTheme.shapes.medium)
+                                                .background(color)
+                                                .padding(horizontal = 20.dp),
+                                            contentAlignment = Alignment.CenterEnd
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Delete,
+                                                contentDescription = "Delete",
+                                                tint = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    }
+                                },
+                                content = {
+                                    LocalBookListItem(
+                                        book = book,
+                                        onClick = { onBookClick(book.id) },
+                                        onRatingChanged = { newRating -> viewModel.updateRating(book.id, newRating) }
+                                    )
+                                }
+                            )
+                        }
                     }
+                    item { Spacer(modifier = Modifier.height(8.dp)) }
                 }
-                item { Spacer(modifier = Modifier.height(8.dp)) }
             }
         }
     }
