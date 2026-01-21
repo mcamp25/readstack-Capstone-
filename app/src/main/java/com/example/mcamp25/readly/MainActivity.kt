@@ -1,16 +1,20 @@
 package com.example.mcamp25.readly
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,14 +36,14 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -70,6 +74,32 @@ import com.example.mcamp25.readly.ui.theme.ReadlyTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+fun Modifier.shimmerEffect(): Modifier = composed {
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val translateAnimation = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmer"
+    )
+
+    val shimmerColors = listOf(
+        Color.LightGray.copy(alpha = 0.6f),
+        Color.LightGray.copy(alpha = 0.2f),
+        Color.LightGray.copy(alpha = 0.6f),
+    )
+
+    background(
+        brush = Brush.linearGradient(
+            colors = shimmerColors,
+            start = Offset.Zero,
+            end = Offset(x = translateAnimation.value, y = translateAnimation.value)
+        )
+    )
+}
 
 class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
@@ -163,7 +193,16 @@ class MainActivity : ComponentActivity() {
                         }
                         composable<Destination.ReadingList> {
                             val viewModel: ReadingListViewModel = viewModel(factory = ReadingListViewModel.Factory)
-                            val haptic = LocalHapticFeedback.current
+                            val context = LocalContext.current
+                            val vibrator = remember(context) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                    context.getSystemService(VibratorManager::class.java).defaultVibrator
+                                } else {
+                                    @Suppress("DEPRECATION")
+                                    context.getSystemService(VIBRATOR_SERVICE) as Vibrator
+                                }
+                            }
+                            
                             ReadingListScreen(
                                 viewModel = viewModel,
                                 onBookClick = { bookId ->
@@ -183,7 +222,14 @@ class MainActivity : ComponentActivity() {
                                             duration = SnackbarDuration.Short
                                         )
                                         if (result == SnackbarResult.ActionPerformed) {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            // UNDO VIBRATION
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                vibrator.vibrate(VibrationEffect.createOneShot(100,
+                                                    VibrationEffect.DEFAULT_AMPLITUDE))
+                                            } else {
+                                                @Suppress("DEPRECATION")
+                                                vibrator.vibrate(100)
+                                            }
                                             viewModel.addBook(book)
                                         }
                                     }
@@ -242,9 +288,18 @@ fun ReadingListScreen(
 ) {
     val books by viewModel.readingList.collectAsState()
     val isRefreshing = remember { mutableStateOf(false) }
+    
     val state = rememberPullToRefreshState()
     val scope = rememberCoroutineScope()
-    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val vibrator = remember(context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            context.getSystemService(VibratorManager::class.java).defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -283,55 +338,63 @@ fun ReadingListScreen(
             }
         }
     ) { innerPadding ->
-        if (books.isEmpty()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AutoStories,
-                    contentDescription = null,
-                    modifier = Modifier.size(100.dp),
-                    tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "Your reading journey starts here.",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.secondary,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "Search for a book to fill your list!",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-        } else {
-            PullToRefreshBox(
-                isRefreshing = isRefreshing.value,
-                state = state,
-                onRefresh = {
-                    isRefreshing.value = true
-                    onSyncClick()
-                    scope.launch {
-                        delay(1500)
-                        isRefreshing.value = false
-                    }
-                },
-                modifier = Modifier.padding(innerPadding)
-            ) {
+        PullToRefreshBox(
+            isRefreshing = isRefreshing.value,
+            state = state,
+            onRefresh = {
+                isRefreshing.value = true
+                onSyncClick()
+                scope.launch {
+                    delay(1500)
+                    isRefreshing.value = false
+                }
+            },
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            val readingList = books
+            if (readingList == null) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     item { Spacer(modifier = Modifier.height(8.dp)) }
-                    items(books, key = { it.id }) { book ->
+                    items(5) { BookSkeletonItem() }
+                    item { Spacer(modifier = Modifier.height(8.dp)) }
+                }
+            } else if (readingList.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoStories,
+                        contentDescription = null,
+                        modifier = Modifier.size(100.dp),
+                        tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Your reading journey starts here.",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.secondary,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "Search for a book to fill your list!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item { Spacer(modifier = Modifier.height(8.dp)) }
+                    items(readingList, key = { it.id }) { book ->
                         var isVisible by remember { mutableStateOf(false) }
                         LaunchedEffect(Unit) { isVisible = true }
                         
@@ -339,7 +402,14 @@ fun ReadingListScreen(
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { value ->
                                 if (value == SwipeToDismissBoxValue.EndToStart) {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    // DELETE VIBRATION
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        vibrator.vibrate(VibrationEffect.createOneShot(100,
+                                            VibrationEffect.DEFAULT_AMPLITUDE))
+                                    } else {
+                                        @Suppress("DEPRECATION")
+                                        vibrator.vibrate(100)
+                                    }
                                     viewModel.removeFromReadingList(book)
                                     onBookDeleted(book)
                                     true
@@ -510,6 +580,45 @@ fun RatingBarMini(
                     .size(24.dp)
                     .clickable { onRatingChanged(i) }
             )
+        }
+    }
+}
+
+@Composable
+fun BookSkeletonItem() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(12.dp)
+                .height(intrinsicSize = IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(90.dp)
+                    .height(130.dp)
+                    .clip(MaterialTheme.shapes.small)
+                    .shimmerEffect()
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Box(modifier = Modifier.fillMaxWidth(0.7f).height(20.dp).shimmerEffect())
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(modifier = Modifier.fillMaxWidth(0.4f).height(16.dp).shimmerEffect())
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(modifier = Modifier.fillMaxWidth(0.3f).height(20.dp).shimmerEffect())
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(14.dp).shimmerEffect())
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(modifier = Modifier.fillMaxWidth(0.8f).height(14.dp).shimmerEffect())
+            }
         }
     }
 }

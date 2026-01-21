@@ -1,5 +1,10 @@
 package com.example.mcamp25.readly.ui.screens.detail
 
+import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.text.Html
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -34,6 +39,16 @@ fun BookDetailScreen(
 ) {
     val uiState = viewModel.uiState
     val currentRating = viewModel.currentRating
+    val context = LocalContext.current
+    val vibrator = remember(context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vibratorManager.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+    }
 
     LaunchedEffect(bookId) {
         viewModel.getBook(bookId)
@@ -103,7 +118,16 @@ fun BookDetailScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         
                         Button(
-                            onClick = { viewModel.addToReadingList(book) },
+                            onClick = { 
+                                // Strong Hardware Vibration for adding a book
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
+                                } else {
+                                    @Suppress("DEPRECATION")
+                                    vibrator.vibrate(50)
+                                }
+                                viewModel.addToReadingList(book) 
+                            },
                             modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.secondary,
                                 contentColor = Color.White

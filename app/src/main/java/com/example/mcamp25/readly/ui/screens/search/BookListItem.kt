@@ -20,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -40,8 +41,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.mcamp25.readly.BookSkeletonItem
 import com.example.mcamp25.readly.data.network.BookItem
 import com.example.mcamp25.readly.R
+import com.example.mcamp25.readly.shimmerEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,91 +85,110 @@ fun SearchScreen(
             viewModel.handleImportedFile(selectedUri)
         }
     }
+    Box(modifier = modifier.fillMaxSize()) {
 
-    Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it },
-            placeholder = { Text("Search Books") },
-            leadingIcon = {
-                IconButton(onClick = { filePickerLauncher.launch("image/*") }) {
-                    if (selectedImageUri != null) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(selectedImageUri)
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = "Selected Image",
-                            modifier = Modifier.size(24.dp).clip(CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Upload Image"
-                        )
-                    }
-                }
-            },
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .focusRequester(focusRequester),
-            singleLine = true,
-            trailingIcon = {
-                FilledIconButton(
-                    onClick = {
-                        if (selectedImageUri != null) {
-                            viewModel.searchByImage(context, selectedImageUri!!)
-                        } else {
-                            performSearch()
+                .statusBarsPadding()
+                .zIndex(1f),
+
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+            tonalElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = { Text("Search Books") },
+                    leadingIcon = {
+                        IconButton(onClick = { filePickerLauncher.launch("image/*") }) {
+                            if (selectedImageUri != null) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(selectedImageUri)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "Selected Image",
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Upload Image"
+                                )
+                            }
                         }
-                        keyboardController?.hide()
                     },
-                    modifier = Modifier.padding(end = 4.dp),
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester),
+                    singleLine = true,
+                    trailingIcon = {
+                        FilledIconButton(
+                            onClick = {
+                                if (selectedImageUri != null) {
+                                    viewModel.searchByImage(context, selectedImageUri!!)
+                                } else {
+                                    performSearch()
+                                }
+                                keyboardController?.hide()
+                            },
+                            modifier = Modifier.padding(end = 4.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search"
+                            )
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            if (selectedImageUri != null) {
+                                viewModel.searchByImage(context, selectedImageUri!!)
+                            } else {
+                                performSearch()
+                            }
+                            keyboardController?.hide()
+                        }
+                    ),
+                    shape = MaterialTheme.shapes.medium,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
                     )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search"
-                    )
-                }
-            },
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(
-                onSearch = {
-                    if (selectedImageUri != null) {
-                        viewModel.searchByImage(context, selectedImageUri!!)
-                    } else {
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                GenreFilterRow(
+                    selectedGenre = selectedGenre,
+                    onGenreSelected = { genre ->
+                        selectedGenre = genre
                         performSearch()
                     }
-                    keyboardController?.hide()
-                }
-            ),
-            shape = MaterialTheme.shapes.medium,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline
-            )
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        GenreFilterRow(
-            selectedGenre = selectedGenre,
-            onGenreSelected = { genre ->
-                selectedGenre = genre
-                performSearch()
+                )
             }
-        )
+        }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        when (val state = uiState) {
-            is SearchUiState.Idle -> {
-                Column(
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 160.dp)
+        ) {
+            when (val state = uiState) {
+                is SearchUiState.Idle -> { Column(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -193,38 +215,42 @@ fun SearchScreen(
                         modifier = Modifier.padding(top = 8.dp, start = 32.dp, end = 32.dp)
                     )
                 }
-            }
-            is SearchUiState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
                 }
-            }
-            is SearchUiState.Success -> {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(state.books) { book ->
-                        BookListItem(
-                            book = book, 
-                            query = query,
-                            onClick = {
-                                onBookClick(book)
-                                query = ""
-                                selectedGenre = null
-                                selectedImageUri = null
-                                viewModel.resetSearch()
-                            }
-                        )
+
+                is SearchUiState.Loading -> {
+                    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                        repeat(5) {
+                            BookSkeletonItem()
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
                     }
                 }
-            }
-            is SearchUiState.Error -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Error fetching books. Please try again.", color = MaterialTheme.colorScheme.error)
+                is SearchUiState.Success -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 16.dp, start = 16.dp, end = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(state.books) { book ->
+                            BookListItem(
+                                book = book,
+                                query = query,
+                                onClick = {
+                                    onBookClick(book)
+                                    query = ""
+                                    selectedGenre = null
+                                    selectedImageUri = null
+                                    viewModel.resetSearch()
+                                }
+                            )
+                        }
+                    }
                 }
+                is SearchUiState.Error -> { Text("Error fetching books. Please try again.", color = MaterialTheme.colorScheme.error) }
             }
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GenreFilterRow(
@@ -303,11 +329,12 @@ fun BookListItem(book: BookItem, query: String, onClick: () -> Unit, modifier: M
                 contentDescription = book.volumeInfo.title,
                 modifier = Modifier
                     .width(80.dp)
-                    .fillMaxHeight(),
+                    .fillMaxHeight()
+                    .shimmerEffect(),
                 contentScale = ContentScale.FillBounds,
                 error = noCoverPainter,
                 fallback = noCoverPainter,
-                placeholder = painterResource(id = android.R.drawable.ic_menu_gallery)
+                placeholder = null
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column {
@@ -359,4 +386,5 @@ fun getHighlightedText(text: String, query: String, color: Color): AnnotatedStri
             start = index + query.length
         }
     }
+
 }

@@ -16,11 +16,11 @@ import kotlinx.coroutines.launch
 
 class ReadingListViewModel(private val bookDao: BookDao) : ViewModel() {
 
-    val readingList: StateFlow<List<BookEntity>> = bookDao.getAllBooks()
+    val readingList: StateFlow<List<BookEntity>?> = bookDao.getAllBooks()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
+            initialValue = null
         )
 
     fun removeFromReadingList(book: BookEntity) {
