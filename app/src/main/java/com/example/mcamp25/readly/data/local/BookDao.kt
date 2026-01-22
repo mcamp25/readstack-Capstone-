@@ -27,6 +27,12 @@ interface BookDao {
     @Query("SELECT isRead FROM books WHERE id = :bookId")
     fun getReadStatus(bookId: String): Flow<Boolean?>
 
+    @Query("UPDATE books SET isCurrentlyReading = :isReading WHERE id = :bookId")
+    suspend fun updateReadingStatus(bookId: String, isReading: Boolean): Int
+
+    @Query("SELECT isCurrentlyReading FROM books WHERE id = :bookId")
+    fun getReadingStatus(bookId: String): Flow<Boolean?>
+
     @Delete
     suspend fun deleteBook(book: BookEntity)
 }

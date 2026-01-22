@@ -1,14 +1,10 @@
 package com.example.mcamp25.readly
 
 import android.Manifest
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -48,8 +44,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -71,6 +69,7 @@ import androidx.work.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.mcamp25.readly.data.local.BookEntity
+import com.example.mcamp25.readly.data.network.BookItem
 import com.example.mcamp25.readly.data.worker.LibrarySyncWorker
 import com.example.mcamp25.readly.ui.navigation.Destination
 import com.example.mcamp25.readly.ui.screens.detail.BookDetailScreen
@@ -79,7 +78,6 @@ import com.example.mcamp25.readly.ui.screens.list.ReadingListViewModel
 import com.example.mcamp25.readly.ui.screens.search.SearchScreen
 import com.example.mcamp25.readly.ui.screens.search.SearchViewModel
 import com.example.mcamp25.readly.ui.theme.ReadlyTheme
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 fun Modifier.shimmerEffect(): Modifier = composed {
@@ -127,6 +125,7 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val snackbarHostState = remember { SnackbarHostState() }
                 val scope = rememberCoroutineScope()
+                val haptic = LocalHapticFeedback.current
                 
                 val items = listOf(
                     BottomNavigationItem("Search", Destination.Search, Icons.Default.Search),
@@ -194,7 +193,7 @@ class MainActivity : ComponentActivity() {
                             val viewModel: SearchViewModel = viewModel()
                             SearchScreen(
                                 viewModel = viewModel,
-                                onBookClick = { book ->
+                                onBookClick = { book: BookItem ->
                                     val pages = book.volumeInfo.pageCount ?: book.volumeInfo.printedPageCount
                                     val date = book.volumeInfo.publishedDate
                                     navController.navigate(Destination.BookDetail(
@@ -207,15 +206,6 @@ class MainActivity : ComponentActivity() {
                         }
                         composable<Destination.ReadingList> {
                             val viewModel: ReadingListViewModel = viewModel(factory = ReadingListViewModel.Factory)
-                            val context = LocalContext.current
-                            val vibrator = remember(context) {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                    context.getSystemService(VibratorManager::class.java).defaultVibrator
-                                } else {
-                                    @Suppress("DEPRECATION")
-                                    context.getSystemService(VIBRATOR_SERVICE) as Vibrator
-                                }
-                            }
                             
                             ReadingListScreen(
                                 viewModel = viewModel,
@@ -236,14 +226,8 @@ class MainActivity : ComponentActivity() {
                                             duration = SnackbarDuration.Short
                                         )
                                         if (result == SnackbarResult.ActionPerformed) {
-                                            // UNDO VIBRATION
-                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                                vibrator.vibrate(VibrationEffect.createOneShot(100,
-                                                    VibrationEffect.DEFAULT_AMPLITUDE))
-                                            } else {
-                                                @Suppress("DEPRECATION")
-                                                vibrator.vibrate(100)
-                                            }
+                                            // UNDO FEEDBACK
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                             viewModel.addBook(book)
                                         }
                                     }
@@ -307,15 +291,7 @@ fun ReadingListScreen(
     
     val state = rememberPullToRefreshState()
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val vibrator = remember(context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            context.getSystemService(VibratorManager::class.java).defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        }
-    }
+    val haptic = LocalHapticFeedback.current
 
     Scaffold(
         topBar = {
@@ -331,7 +307,7 @@ fun ReadingListScreen(
                                 onSyncClick()
                                 isRefreshing.value = true
                                 scope.launch {
-                                    delay(1500)
+                                    kotlinx.coroutines.delay(1500)
                                     isRefreshing.value = false
                                 }
                             },
@@ -361,7 +337,7 @@ fun ReadingListScreen(
                 isRefreshing.value = true
                 onSyncClick()
                 scope.launch {
-                    delay(1500)
+                    kotlinx.coroutines.delay(1500)
                     isRefreshing.value = false
                 }
             },
@@ -423,14 +399,8 @@ fun ReadingListScreen(
                             val dismissState = rememberSwipeToDismissBoxState(
                                 confirmValueChange = { value ->
                                     if (value == SwipeToDismissBoxValue.EndToStart) {
-                                        // DELETE VIBRATION
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                            vibrator.vibrate(VibrationEffect.createOneShot(100,
-                                                VibrationEffect.DEFAULT_AMPLITUDE))
-                                        } else {
-                                            @Suppress("DEPRECATION")
-                                            vibrator.vibrate(100)
-                                        }
+                                        // DELETE FEEDBACK
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         viewModel.removeFromReadingList(book)
                                         onBookDeleted(book)
                                         true
@@ -502,21 +472,14 @@ fun ReadingListScreen(
                         tonalElevation = 4.dp
                     ) {}
 
-                    Row(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(40.dp)
                             .zIndex(2f)
                             .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        contentAlignment = Alignment.CenterEnd
                     ) {
-                        Text(
-                            text = "My Library",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
                         Text(
                             text = "${readingList.size} items",
                             style = MaterialTheme.typography.labelSmall,
@@ -536,7 +499,7 @@ fun LocalBookListItem(
     onRatingChanged: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val cleanDescription = remember(book.description) {
         android.text.Html.fromHtml(book.description, android.text.Html.FROM_HTML_MODE_COMPACT).toString()
     }
@@ -580,19 +543,38 @@ fun LocalBookListItem(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
+                    if (book.isCurrentlyReading) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(26.dp),
+                            shadowElevation = 2.dp
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoStories,
+                                    contentDescription = "Currently Reading",
+                                    tint = MaterialTheme.colorScheme.onSecondary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
                     if (book.isRead) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Surface(
                             shape = CircleShape,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(26.dp),
+                            shadowElevation = 2.dp
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = "Finished",
                                     tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
@@ -607,7 +589,10 @@ fun LocalBookListItem(
                 
                 RatingBarMini(
                     rating = book.rating,
-                    onRatingChanged = onRatingChanged
+                    onRatingChanged = { 
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onRatingChanged(it) 
+                    }
                 )
 
                 Row(
@@ -642,6 +627,7 @@ fun LocalBookListItem(
                 )
             }
             Column(modifier = Modifier.align(Alignment.Top)) {
+                val context = LocalContext.current
                 IconButton(
                     onClick = {
                         val shareIntent = Intent(Intent.ACTION_SEND).apply {

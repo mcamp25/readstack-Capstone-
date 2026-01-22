@@ -14,5 +14,6 @@ data class BookEntity(
     val publishedDate: String? = null,
     val pageCount: Int? = null,
     val category: String? = null,
-    val isRead: Boolean = false
+    val isRead: Boolean = false,
+    val isCurrentlyReading: Boolean = false
 )

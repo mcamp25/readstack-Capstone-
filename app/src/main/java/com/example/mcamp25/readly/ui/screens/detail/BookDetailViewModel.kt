@@ -36,8 +36,12 @@ class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
     var isRead by mutableStateOf(false)
         private set
 
+    var isCurrentlyReading by mutableStateOf(false)
+        private set
+
     private var ratingJob: Job? = null
     private var readStatusJob: Job? = null
+    private var readingStatusJob: Job? = null
 
     fun getBook(id: String) {
         viewModelScope.launch {
@@ -46,6 +50,7 @@ class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
                 val book = RetrofitClient.apiService.getBook(id)
                 observeRating(id)
                 observeReadStatus(id)
+                observeReadingStatus(id)
                 BookDetailUiState.Success(book)
             } catch (_: IOException) {
                 BookDetailUiState.Error
@@ -75,6 +80,15 @@ class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
         }
     }
 
+    private fun observeReadingStatus(bookId: String) {
+        readingStatusJob?.cancel()
+        readingStatusJob = viewModelScope.launch {
+            bookDao.getReadingStatus(bookId).collectLatest { status ->
+                isCurrentlyReading = status ?: false
+            }
+        }
+    }
+
     fun updateRating(bookId: String, rating: Int) {
         currentRating = rating
         viewModelScope.launch {
@@ -87,6 +101,14 @@ class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
         isRead = newStatus
         viewModelScope.launch {
             bookDao.updateReadStatus(bookId, newStatus)
+        }
+    }
+
+    fun toggleCurrentlyReading(bookId: String) {
+        val newStatus = !isCurrentlyReading
+        isCurrentlyReading = newStatus
+        viewModelScope.launch {
+            bookDao.updateReadingStatus(bookId, newStatus)
         }
     }
 
@@ -113,7 +135,8 @@ class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
                 publishedDate = finalDate,
                 pageCount = finalPages,
                 category = finalCategory,
-                isRead = isRead
+                isRead = isRead,
+                isCurrentlyReading = isCurrentlyReading
             )
             bookDao.insert(entity)
         }

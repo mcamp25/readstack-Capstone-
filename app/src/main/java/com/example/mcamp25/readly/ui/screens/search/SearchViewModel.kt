@@ -8,9 +8,8 @@ import com.example.mcamp25.readly.data.RetrofitClient
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.IOException
 
@@ -18,8 +17,47 @@ class SearchViewModel : ViewModel() {
     private val _searchUiState = MutableStateFlow<SearchUiState>(SearchUiState.Idle)
     val searchUiState: StateFlow<SearchUiState> = _searchUiState.asStateFlow()
 
+    private val _suggestions = MutableStateFlow<List<String>>(emptyList())
+    val suggestions: StateFlow<List<String>> = _suggestions.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+
+    init {
+        observeSearchQuery()
+    }
+
+    @OptIn(FlowPreview::class)
+    private fun observeSearchQuery() {
+        _searchQuery
+            .debounce(300)
+            .distinctUntilChanged()
+            .onEach { query ->
+                if (query.length >= 3) {
+                    fetchSuggestions(query)
+                } else {
+                    _suggestions.value = emptyList()
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    fun onQueryChanged(query: String) {
+        _searchQuery.value = query
+    }
+
+    private suspend fun fetchSuggestions(query: String) {
+        try {
+            val result = RetrofitClient.apiService.searchBooks(query)
+            val titles = result.items?.map { it.volumeInfo.title }?.distinct()?.take(5) ?: emptyList()
+            _suggestions.value = titles
+        } catch (_: Exception) {
+            _suggestions.value = emptyList()
+        }
+    }
+
     fun searchBooks(query: String) {
         if (query.isBlank()) return
+        _suggestions.value = emptyList() // Clear suggestions on formal search
 
         viewModelScope.launch {
             _searchUiState.value = SearchUiState.Loading
@@ -61,6 +99,7 @@ class SearchViewModel : ViewModel() {
 
     fun resetSearch() {
         _searchUiState.value = SearchUiState.Idle
+        _suggestions.value = emptyList()
     }
 
     fun handleImportedFile(uri: Uri) {
