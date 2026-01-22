@@ -139,44 +139,56 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     snackbarHost = { SnackbarHost(snackbarHostState) },
                     bottomBar = {
-                        NavigationBar(
-                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier
-                                .border(
-                                    width = 0.5.dp,
-                                    brush = Brush.verticalGradient(
-                                        listOf(Color.White.copy(alpha = 0.3f), Color.Transparent)
-                                    ),
-                                    shape = androidx.compose.ui.graphics.RectangleShape
-                                )
-                        ) {
-                            val navBackStackEntry by navController.currentBackStackEntryAsState()
-                            val currentDestination = navBackStackEntry?.destination
-                            items.forEach { item ->
-                                NavigationBarItem(
-                                    icon = { Icon(item.icon, contentDescription = item.label) },
-                                    label = { Text(item.label) },
-                                    selected = currentDestination?.hierarchy?.any { it.hasRoute(item.destination::class) } == true ||
-                                            (item.destination is Destination.Search && currentDestination?.hierarchy?.any { it.hasRoute(
-                                                Destination.BookDetail::class) } == true),
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        selectedTextColor = MaterialTheme.colorScheme.onPrimary,
-                                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
-                                        unselectedIconColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
-                                        unselectedTextColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                                    ),
-                                    onClick = {
-                                        navController.navigate(item.destination) {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
+                        Box {
+                            // 1. Blurred background layer
+                            Surface(
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                                tonalElevation = 0.dp,
+                                modifier = Modifier
+                                    .matchParentSize() // Matches the NavigationBar size
+                                    .blur(10.dp)
+                                    .border(
+                                        width = 0.5.dp,
+                                        brush = Brush.verticalGradient(
+                                            listOf(Color.White.copy(alpha = 0.3f), Color.Transparent)
+                                        ),
+                                        shape = androidx.compose.ui.graphics.RectangleShape
+                                    )
+                            ) {}
+
+                            // 2. Sharp Navigation Items layer
+                            NavigationBar(
+                                containerColor = Color.Transparent, // Transparent so the blurred layer shows through
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                                tonalElevation = 0.dp
+                            ) {
+                                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                                val currentDestination = navBackStackEntry?.destination
+                                items.forEach { item ->
+                                    NavigationBarItem(
+                                        icon = { Icon(item.icon, contentDescription = item.label) },
+                                        label = { Text(item.label) },
+                                        selected = currentDestination?.hierarchy?.any { it.hasRoute(item.destination::class) } == true ||
+                                                (item.destination is Destination.Search && currentDestination?.hierarchy?.any { it.hasRoute(
+                                                    Destination.BookDetail::class) } == true),
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                                            indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                            unselectedIconColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                                            unselectedTextColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                                        ),
+                                        onClick = {
+                                            navController.navigate(item.destination) {
+                                                popUpTo(navController.graph.findStartDestination().id) {
+                                                    saveState = true
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = true
                                             }
-                                            launchSingleTop = true
-                                            restoreState = true
                                         }
-                                    }
-                                )
+                                    )
+                                }
                             }
                         }
                     }
@@ -184,7 +196,7 @@ class MainActivity : ComponentActivity() {
                     NavHost(
                         navController = navController,
                         startDestination = Destination.Search,
-                        modifier = Modifier.padding(innerPadding),
+                        modifier = Modifier.fillMaxSize(),
                         enterTransition = { fadeIn(animationSpec = tween(400)) },
                         exitTransition = { fadeOut(animationSpec = tween(400)) },
                         popEnterTransition = { fadeIn(animationSpec = tween(400)) },
@@ -194,6 +206,7 @@ class MainActivity : ComponentActivity() {
                             val viewModel: SearchViewModel = viewModel()
                             SearchScreen(
                                 viewModel = viewModel,
+                                modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
                                 onBookClick = { book: BookItem ->
                                     val pages = book.volumeInfo.pageCount ?: book.volumeInfo.printedPageCount
                                     val date = book.volumeInfo.publishedDate
@@ -210,6 +223,7 @@ class MainActivity : ComponentActivity() {
                             
                             ReadingListScreen(
                                 viewModel = viewModel,
+                                bottomPadding = innerPadding.calculateBottomPadding(),
                                 onBookClick = { bookId ->
                                     navController.navigate(Destination.BookDetail(bookId))
                                 },
@@ -283,6 +297,7 @@ data class BottomNavigationItem(
 @Composable
 fun ReadingListScreen(
     viewModel: ReadingListViewModel,
+    bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
     onBookClick: (String) -> Unit,
     onSyncClick: () -> Unit,
     onBookDeleted: (BookEntity) -> Unit
@@ -342,7 +357,7 @@ fun ReadingListScreen(
                     isRefreshing.value = false
                 }
             },
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(top = innerPadding.calculateTopPadding(), bottom = bottomPadding)
         ) {
             val readingList = books
             if (readingList == null) {
