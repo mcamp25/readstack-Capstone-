@@ -6,13 +6,20 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.text.Html
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.*
@@ -34,6 +41,8 @@ import com.example.mcamp25.readly.R
 @Composable
 fun BookDetailScreen(
     bookId: String,
+    initialPages: Int? = null,
+    initialDate: String? = null,
     viewModel: BookDetailViewModel,
     onBackClick: () -> Unit
 ) {
@@ -116,6 +125,32 @@ fun BookDetailScreen(
                         )
                         
                         Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                        ) {
+                            val displayDate = book.volumeInfo.publishedDate ?: initialDate
+                            displayDate?.let { date ->
+                                AssistChip(
+                                    onClick = { },
+                                    label = { Text(date) },
+                                    leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                                )
+                            }
+                            val displayPages = book.volumeInfo.pageCount ?: book.volumeInfo.printedPageCount ?: initialPages
+                            displayPages?.let { count ->
+                                AssistChip(
+                                    onClick = { },
+                                    label = { Text("$count pages") },
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
                         
                         Button(
                             onClick = { 
@@ -126,7 +161,7 @@ fun BookDetailScreen(
                                     @Suppress("DEPRECATION")
                                     vibrator.vibrate(50)
                                 }
-                                viewModel.addToReadingList(book) 
+                                viewModel.addToReadingList(book, initialPages, initialDate)
                             },
                             modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.secondary,
@@ -181,13 +216,27 @@ fun RatingBar(
 ) {
     Row(modifier = modifier) {
         for (i in 1..5) {
+            val starSize by animateDpAsState(
+                targetValue = if (i <= rating) 44.dp else 40.dp,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                ),
+                label = "starSize"
+            )
+
             Icon(
                 imageVector = if (i <= rating) Icons.Default.Star else Icons.Default.StarBorder,
                 contentDescription = null,
                 tint = if (i <= rating) MaterialTheme.colorScheme.secondary else Color.Gray,
                 modifier = Modifier
-                    .size(40.dp)
-                    .clickable { onRatingChanged(i) }
+                    .size(starSize)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { 
+                        onRatingChanged(i) 
+                    }
             )
         }
     }

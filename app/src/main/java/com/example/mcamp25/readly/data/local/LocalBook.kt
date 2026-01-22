@@ -10,5 +10,8 @@ data class BookEntity(
     val author: String,
     val description: String,
     val thumbnail: String?,
-    val rating: Int = 0
+    val rating: Int = 0,
+    val publishedDate: String? = null,
+    val pageCount: Int? = null,
+    val category: String? = null
 )

@@ -54,7 +54,6 @@ class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
         ratingJob?.cancel()
         ratingJob = viewModelScope.launch {
             bookDao.getRating(bookId).collectLatest { rating ->
-                // If it's in the DB, use that. If not, keep our local state if user changed it.
                 if (rating != null) {
                     currentRating = rating
                 }
@@ -66,20 +65,32 @@ class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
         currentRating = rating
         viewModelScope.launch {
             bookDao.updateRating(bookId, rating)
-            // If the book isn't in the DB yet, updateRating (UPDATE) won't work.
-            // But we keep currentRating in memory so if they click "Add", it persists.
         }
     }
 
-    fun addToReadingList(book: BookItem) {
+    fun addToReadingList(book: BookItem, initialPages: Int? = null, initialDate: String? = null) {
         viewModelScope.launch {
+            // Aggressively find the best metadata available
+            val finalPages = when {
+                (book.volumeInfo.pageCount ?: 0) > 0 -> book.volumeInfo.pageCount
+                (book.volumeInfo.printedPageCount ?: 0) > 0 -> book.volumeInfo.printedPageCount
+                (initialPages ?: 0) > 0 -> initialPages
+                else -> null
+            }
+            
+            val finalDate = book.volumeInfo.publishedDate ?: initialDate
+            val finalCategory = book.volumeInfo.categories?.firstOrNull()
+            
             val entity = BookEntity(
                 id = book.id,
                 title = book.volumeInfo.title,
                 author = book.volumeInfo.authors?.joinToString(", ") ?: "Unknown Author",
                 description = book.volumeInfo.description ?: "",
                 thumbnail = book.volumeInfo.imageLinks?.thumbnailUrl?.replace("http:", "https:") ?: "",
-                rating = currentRating
+                rating = currentRating,
+                publishedDate = finalDate,
+                pageCount = finalPages,
+                category = finalCategory
             )
             bookDao.insert(entity)
         }

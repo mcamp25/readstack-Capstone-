@@ -14,7 +14,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -318,7 +320,7 @@ fun BookListItem(book: BookItem, query: String, onClick: () -> Unit, modifier: M
         Row(
             modifier = Modifier
                 .padding(8.dp)
-                .height(120.dp),
+                .height(intrinsicSize = IntrinsicSize.Min),
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(
@@ -329,7 +331,7 @@ fun BookListItem(book: BookItem, query: String, onClick: () -> Unit, modifier: M
                 contentDescription = book.volumeInfo.title,
                 modifier = Modifier
                     .width(80.dp)
-                    .fillMaxHeight()
+                    .height(120.dp)
                     .shimmerEffect(),
                 contentScale = ContentScale.FillBounds,
                 error = noCoverPainter,
@@ -337,13 +339,12 @@ fun BookListItem(book: BookItem, query: String, onClick: () -> Unit, modifier: M
                 placeholder = null
             )
             Spacer(modifier = Modifier.width(16.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = highlightedTitle,
                     style = MaterialTheme.typography.titleMedium,
-                    // Normal weight makes the Black highlighted text pop more
                     fontWeight = FontWeight.Normal,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
@@ -352,11 +353,34 @@ fun BookListItem(book: BookItem, query: String, onClick: () -> Unit, modifier: M
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(vertical = 2.dp)
+                ) {
+                    book.volumeInfo.publishedDate?.let { date ->
+                        AssistChip(
+                            onClick = { },
+                            label = { Text(date, style = MaterialTheme.typography.labelSmall) },
+                            leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(14.dp)) },
+                            modifier = Modifier.height(24.dp)
+                        )
+                    }
+                    val displayPages = book.volumeInfo.pageCount ?: book.volumeInfo.printedPageCount
+                    if (displayPages != null && displayPages > 0) {
+                        AssistChip(
+                            onClick = { },
+                            label = { Text("$displayPages p", style = MaterialTheme.typography.labelSmall) },
+                            leadingIcon = { Icon(Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.size(14.dp)) },
+                            modifier = Modifier.height(24.dp)
+                        )
+                    }
+                }
+
                 Text(
                     text = cleanDescription,
                     style = MaterialTheme.typography.bodySmall,
-                    maxLines = 3,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }

@@ -18,18 +18,23 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -58,6 +63,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.runtime.getValue
 import androidx.navigation.toRoute
 import androidx.work.*
 import coil.compose.AsyncImage
@@ -187,7 +193,13 @@ class MainActivity : ComponentActivity() {
                             SearchScreen(
                                 viewModel = viewModel,
                                 onBookClick = { book ->
-                                    navController.navigate(Destination.BookDetail(book.id))
+                                    val pages = book.volumeInfo.pageCount ?: book.volumeInfo.printedPageCount
+                                    val date = book.volumeInfo.publishedDate
+                                    navController.navigate(Destination.BookDetail(
+                                        bookId = book.id,
+                                        initialPages = pages,
+                                        initialDate = date
+                                    ))
                                 }
                             )
                         }
@@ -241,6 +253,8 @@ class MainActivity : ComponentActivity() {
                             val viewModel: BookDetailViewModel = viewModel(factory = BookDetailViewModel.Factory)
                             BookDetailScreen(
                                 bookId = bookDetail.bookId,
+                                initialPages = bookDetail.initialPages,
+                                initialDate = bookDetail.initialDate,
                                 viewModel = viewModel,
                                 onBackClick = { navController.popBackStack() }
                             )
@@ -354,7 +368,9 @@ fun ReadingListScreen(
             val readingList = books
             if (readingList == null) {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     item { Spacer(modifier = Modifier.height(8.dp)) }
@@ -390,7 +406,9 @@ fun ReadingListScreen(
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     item { Spacer(modifier = Modifier.height(8.dp)) }
@@ -498,8 +516,7 @@ fun LocalBookListItem(
     ) {
         Row(
             modifier = Modifier
-                .padding(12.dp)
-                .height(intrinsicSize = IntrinsicSize.Min),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(
@@ -536,6 +553,32 @@ fun LocalBookListItem(
                     rating = book.rating,
                     onRatingChanged = onRatingChanged
                 )
+
+                Row(
+                    modifier = Modifier
+                        .padding(vertical = 4.dp)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    book.publishedDate?.let { date ->
+                        AssistChip(
+                            onClick = { },
+                            label = { Text(date, style = MaterialTheme.typography.labelSmall) },
+                            leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(12.dp)) },
+                            modifier = Modifier.height(24.dp)
+                        )
+                    }
+                    book.pageCount?.let { count ->
+                        if (count > 0) {
+                            AssistChip(
+                                onClick = { },
+                                label = { Text("$count p", style = MaterialTheme.typography.labelSmall) },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(12.dp)) },
+                                modifier = Modifier.height(24.dp)
+                            )
+                        }
+                    }
+                }
                 
                 Text(
                     text = cleanDescription,
@@ -572,18 +615,32 @@ fun RatingBarMini(
 ) {
     Row {
         for (i in 1..5) {
+            // 1. Create an animated size for each star
+            val starSize by animateDpAsState(
+                targetValue = if (i <= rating) 28.dp else 24.dp,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                ),
+                label = "starSize"
+            )
+
             Icon(
                 imageVector = if (i <= rating) Icons.Default.Star else Icons.Default.StarBorder,
                 contentDescription = null,
                 tint = if (i <= rating) MaterialTheme.colorScheme.secondary else Color.Gray,
                 modifier = Modifier
-                    .size(24.dp)
-                    .clickable { onRatingChanged(i) }
+                    .size(starSize) // 2. Use the animated size here
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null // Removes the grey circle ripple to keep it clean
+                    ) {
+                        onRatingChanged(i)
+                    }
             )
         }
     }
 }
-
 @Composable
 fun BookSkeletonItem() {
     Card(
@@ -596,8 +653,7 @@ fun BookSkeletonItem() {
     ) {
         Row(
             modifier = Modifier
-                .padding(12.dp)
-                .height(intrinsicSize = IntrinsicSize.Min),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -609,15 +665,36 @@ fun BookSkeletonItem() {
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Box(modifier = Modifier.fillMaxWidth(0.7f).height(20.dp).shimmerEffect())
+                Box(modifier = Modifier
+                    .fillMaxWidth(0.7f)
+                    .height(20.dp)
+                    .shimmerEffect())
                 Spacer(modifier = Modifier.height(8.dp))
-                Box(modifier = Modifier.fillMaxWidth(0.4f).height(16.dp).shimmerEffect())
+                Box(modifier = Modifier
+                    .fillMaxWidth(0.4f)
+                    .height(16.dp)
+                    .shimmerEffect())
                 Spacer(modifier = Modifier.height(12.dp))
-                Box(modifier = Modifier.fillMaxWidth(0.3f).height(20.dp).shimmerEffect())
+                Box(modifier = Modifier
+                    .fillMaxWidth(0.3f)
+                    .height(20.dp)
+                    .shimmerEffect())
+                Spacer(modifier = Modifier.height(8.dp))
+                // Reservation for metadata chips
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(modifier = Modifier.width(60.dp).height(24.dp).clip(MaterialTheme.shapes.small).shimmerEffect())
+                    Box(modifier = Modifier.width(50.dp).height(24.dp).clip(MaterialTheme.shapes.small).shimmerEffect())
+                }
                 Spacer(modifier = Modifier.height(12.dp))
-                Box(modifier = Modifier.fillMaxWidth().height(14.dp).shimmerEffect())
+                Box(modifier = Modifier
+                    .fillMaxWidth()
+                    .height(14.dp)
+                    .shimmerEffect())
                 Spacer(modifier = Modifier.height(4.dp))
-                Box(modifier = Modifier.fillMaxWidth(0.8f).height(14.dp).shimmerEffect())
+                Box(modifier = Modifier
+                    .fillMaxWidth(0.8f)
+                    .height(14.dp)
+                    .shimmerEffect())
             }
         }
     }
