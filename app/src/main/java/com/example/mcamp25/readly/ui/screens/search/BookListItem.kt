@@ -4,48 +4,51 @@ import android.net.Uri
 import android.text.Html
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.mcamp25.readly.BookSkeletonItem
-import com.example.mcamp25.readly.data.network.BookItem
 import com.example.mcamp25.readly.R
+import com.example.mcamp25.readly.data.network.BookItem
 import com.example.mcamp25.readly.shimmerEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -87,15 +90,15 @@ fun SearchScreen(
             viewModel.handleImportedFile(selectedUri)
         }
     }
+    
     Box(modifier = modifier.fillMaxSize()) {
-
+        // 1. Top Search Bar with Blur
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .zIndex(1f),
-
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                .zIndex(3f),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
             tonalElevation = 8.dp
         ) {
             Column(
@@ -184,39 +187,41 @@ fun SearchScreen(
             }
         }
 
+        // 2. Main Content
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 160.dp)
+                .padding(top = 160.dp) // Adjusted for Search bar height
         ) {
             when (val state = uiState) {
-                is SearchUiState.Idle -> { Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AutoStories,
-                        contentDescription = null,
-                        modifier = Modifier.size(120.dp),
-                        tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text(
-                        text = "Start your collection.",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.secondary,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "Search for the title that inspires you",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 8.dp, start = 32.dp, end = 32.dp)
-                    )
-                }
+                is SearchUiState.Idle -> { 
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AutoStories,
+                            contentDescription = null,
+                            modifier = Modifier.size(120.dp),
+                            tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "Start your collection.",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.secondary,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "Search for the title that inspires you",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 8.dp, start = 32.dp, end = 32.dp)
+                        )
+                    }
                 }
 
                 is SearchUiState.Loading -> {
@@ -227,32 +232,80 @@ fun SearchScreen(
                         }
                     }
                 }
+                
                 is SearchUiState.Success -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 16.dp, start = 16.dp, end = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(state.books) { book ->
-                            BookListItem(
-                                book = book,
-                                query = query,
-                                onClick = {
-                                    onBookClick(book)
-                                    query = ""
-                                    selectedGenre = null
-                                    selectedImageUri = null
-                                    viewModel.resetSearch()
-                                }
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        // Scrolling List
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(
+                                top = 44.dp, // Leave room for sticky results header
+                                bottom = 16.dp,
+                                start = 16.dp,
+                                end = 16.dp
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(state.books) { book ->
+                                BookListItem(
+                                    book = book,
+                                    query = query,
+                                    onClick = {
+                                        onBookClick(book)
+                                        query = ""
+                                        selectedGenre = null
+                                        selectedImageUri = null
+                                        viewModel.resetSearch()
+                                    }
+                                )
+                            }
+                        }
+
+                        // Sticky Blurred "Results" Header
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp)
+                                .zIndex(2f)
+                                .blur(10.dp), // Frosted glass effect
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                            tonalElevation = 4.dp
+                        ) { }
+                        
+                        // Results Text (Overlay so it isn't blurred)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp)
+                                .zIndex(2f)
+                                .padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Search Results",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "${state.books.size} found",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 }
-                is SearchUiState.Error -> { Text("Error fetching books. Please try again.", color = MaterialTheme.colorScheme.error) }
+                is SearchUiState.Error -> { 
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Error fetching books. Please try again.", color = MaterialTheme.colorScheme.error)
+                    }
+                }
             }
         }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GenreFilterRow(
@@ -292,7 +345,6 @@ fun GenreFilterRow(
 
 @Composable
 fun BookListItem(book: BookItem, query: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    // Strip HTML tags for cleaner display
     val cleanDescription = remember(book.volumeInfo.description) {
         book.volumeInfo.description?.let {
             Html.fromHtml(it, Html.FROM_HTML_MODE_COMPACT).toString()
@@ -300,8 +352,6 @@ fun BookListItem(book: BookItem, query: String, onClick: () -> Unit, modifier: M
     }
 
     val noCoverPainter = painterResource(id = R.drawable.no_cover)
- 
-    // Muted Rust Orange: High contrast against Teal, but less intense than pure Coral
     val highlightColor = Color(0xFFD35400)
     
     val highlightedTitle = remember(book.volumeInfo.title, query, highlightColor) {
@@ -319,8 +369,7 @@ fun BookListItem(book: BookItem, query: String, onClick: () -> Unit, modifier: M
     ) {
         Row(
             modifier = Modifier
-                .padding(8.dp)
-                .height(intrinsicSize = IntrinsicSize.Min),
+                .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(
@@ -355,25 +404,26 @@ fun BookListItem(book: BookItem, query: String, onClick: () -> Unit, modifier: M
                 )
                 
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(vertical = 2.dp)
+                    modifier = Modifier
+                        .padding(vertical = 2.dp)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     book.volumeInfo.publishedDate?.let { date ->
-                        AssistChip(
-                            onClick = { },
-                            label = { Text(date, style = MaterialTheme.typography.labelSmall) },
-                            leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(14.dp)) },
-                            modifier = Modifier.height(24.dp)
-                        )
+                        val year = if (date.length >= 4) date.take(4) else date
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.outline)
+                            Spacer(Modifier.width(4.dp))
+                            Text(year, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        }
                     }
                     val displayPages = book.volumeInfo.pageCount ?: book.volumeInfo.printedPageCount
                     if (displayPages != null && displayPages > 0) {
-                        AssistChip(
-                            onClick = { },
-                            label = { Text("$displayPages p", style = MaterialTheme.typography.labelSmall) },
-                            leadingIcon = { Icon(Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.size(14.dp)) },
-                            modifier = Modifier.height(24.dp)
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.outline)
+                            Spacer(Modifier.width(4.dp))
+                            Text("$displayPages p", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        }
                     }
                 }
 
@@ -388,9 +438,6 @@ fun BookListItem(book: BookItem, query: String, onClick: () -> Unit, modifier: M
     }
 }
 
-/**
- * Returns an AnnotatedString with search matches bolded and colored.
- */
 fun getHighlightedText(text: String, query: String, color: Color): AnnotatedString {
     return buildAnnotatedString {
         val lowerText = text.lowercase()
@@ -403,12 +450,10 @@ fun getHighlightedText(text: String, query: String, color: Color): AnnotatedStri
                 break
             }
             append(text.substring(start, index))
-            // Use FontWeight.Black (the heaviest) for maximum physical pop
             withStyle(SpanStyle(color = color, fontWeight = FontWeight.Black)) {
                 append(text.substring(index, index + query.length))
             }
             start = index + query.length
         }
     }
-
 }

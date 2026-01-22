@@ -33,7 +33,11 @@ class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
     var currentRating by mutableIntStateOf(0)
         private set
 
+    var isRead by mutableStateOf(false)
+        private set
+
     private var ratingJob: Job? = null
+    private var readStatusJob: Job? = null
 
     fun getBook(id: String) {
         viewModelScope.launch {
@@ -41,6 +45,7 @@ class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
             uiState = try {
                 val book = RetrofitClient.apiService.getBook(id)
                 observeRating(id)
+                observeReadStatus(id)
                 BookDetailUiState.Success(book)
             } catch (_: IOException) {
                 BookDetailUiState.Error
@@ -61,10 +66,27 @@ class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
         }
     }
 
+    private fun observeReadStatus(bookId: String) {
+        readStatusJob?.cancel()
+        readStatusJob = viewModelScope.launch {
+            bookDao.getReadStatus(bookId).collectLatest { status ->
+                isRead = status ?: false
+            }
+        }
+    }
+
     fun updateRating(bookId: String, rating: Int) {
         currentRating = rating
         viewModelScope.launch {
             bookDao.updateRating(bookId, rating)
+        }
+    }
+
+    fun toggleReadStatus(bookId: String) {
+        val newStatus = !isRead
+        isRead = newStatus
+        viewModelScope.launch {
+            bookDao.updateReadStatus(bookId, newStatus)
         }
     }
 
@@ -90,7 +112,8 @@ class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
                 rating = currentRating,
                 publishedDate = finalDate,
                 pageCount = finalPages,
-                category = finalCategory
+                category = finalCategory,
+                isRead = isRead
             )
             bookDao.insert(entity)
         }

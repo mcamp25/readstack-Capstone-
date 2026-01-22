@@ -18,23 +18,23 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -42,6 +42,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -54,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -405,88 +407,122 @@ fun ReadingListScreen(
                     )
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    item { Spacer(modifier = Modifier.height(8.dp)) }
-                    items(readingList, key = { it.id }) { book ->
-                        var isVisible by remember { mutableStateOf(false) }
-                        LaunchedEffect(Unit) { isVisible = true }
-                        
-                        @Suppress("DEPRECATION")
-                        val dismissState = rememberSwipeToDismissBoxState(
-                            confirmValueChange = { value ->
-                                if (value == SwipeToDismissBoxValue.EndToStart) {
-                                    // DELETE VIBRATION
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                        vibrator.vibrate(VibrationEffect.createOneShot(100,
-                                            VibrationEffect.DEFAULT_AMPLITUDE))
-                                    } else {
-                                        @Suppress("DEPRECATION")
-                                        vibrator.vibrate(100)
-                                    }
-                                    viewModel.removeFromReadingList(book)
-                                    onBookDeleted(book)
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        )
-
-                        // RESET state if it was dismissed but the book is still here (Undo)
-                        LaunchedEffect(book) {
-                            if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
-                                dismissState.reset()
-                            }
-                        }
-
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            modifier = Modifier.animateItem(),
-                            enter = fadeIn(animationSpec = tween(500)) +
-                                    slideInVertically(initialOffsetY = { it / 2 }),
-                            exit = fadeOut()
-                        ) {
-                            SwipeToDismissBox(
-                                state = dismissState,
-                                enableDismissFromStartToEnd = false,
-                                backgroundContent = {
-                                    val color = when (dismissState.targetValue) {
-                                        SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.errorContainer
-                                        else -> Color.Transparent
-                                    }
-                                    if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .clip(MaterialTheme.shapes.medium)
-                                                .background(color)
-                                                .padding(horizontal = 20.dp),
-                                            contentAlignment = Alignment.CenterEnd
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Delete,
-                                                contentDescription = "Delete",
-                                                tint = MaterialTheme.colorScheme.error
-                                            )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        contentPadding = PaddingValues(top = 40.dp, bottom = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(readingList, key = { it.id }) { book ->
+                            var isVisible by remember { mutableStateOf(false) }
+                            LaunchedEffect(Unit) { isVisible = true }
+                            
+                            @Suppress("DEPRECATION")
+                            val dismissState = rememberSwipeToDismissBoxState(
+                                confirmValueChange = { value ->
+                                    if (value == SwipeToDismissBoxValue.EndToStart) {
+                                        // DELETE VIBRATION
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                            vibrator.vibrate(VibrationEffect.createOneShot(100,
+                                                VibrationEffect.DEFAULT_AMPLITUDE))
+                                        } else {
+                                            @Suppress("DEPRECATION")
+                                            vibrator.vibrate(100)
                                         }
+                                        viewModel.removeFromReadingList(book)
+                                        onBookDeleted(book)
+                                        true
+                                    } else {
+                                        false
                                     }
-                                },
-                                content = {
-                                    LocalBookListItem(
-                                        book = book,
-                                        onClick = { onBookClick(book.id) },
-                                        onRatingChanged = { newRating -> viewModel.updateRating(book.id, newRating) }
-                                    )
                                 }
                             )
+
+                            // RESET state if it was dismissed but the book is still here (Undo)
+                            LaunchedEffect(book) {
+                                if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+                                    dismissState.reset()
+                                }
+                            }
+
+                            AnimatedVisibility(
+                                visible = isVisible,
+                                modifier = Modifier.animateItem(),
+                                enter = fadeIn(animationSpec = tween(500)) +
+                                        slideInVertically(initialOffsetY = { it / 2 }),
+                                exit = fadeOut()
+                            ) {
+                                SwipeToDismissBox(
+                                    state = dismissState,
+                                    enableDismissFromStartToEnd = false,
+                                    backgroundContent = {
+                                        val color = when (dismissState.targetValue) {
+                                            SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.errorContainer
+                                            else -> Color.Transparent
+                                        }
+                                        if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .clip(MaterialTheme.shapes.medium)
+                                                    .background(color)
+                                                    .padding(horizontal = 20.dp),
+                                                contentAlignment = Alignment.CenterEnd
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Delete,
+                                                    contentDescription = "Delete",
+                                                    tint = MaterialTheme.colorScheme.error
+                                                )
+                                            }
+                                        }
+                                    },
+                                    content = {
+                                        LocalBookListItem(
+                                            book = book,
+                                            onClick = { onBookClick(book.id) },
+                                            onRatingChanged = { newRating -> viewModel.updateRating(book.id, newRating) }
+                                        )
+                                    }
+                                )
+                            }
                         }
                     }
-                    item { Spacer(modifier = Modifier.height(8.dp)) }
+
+                    // Sticky Blurred Header for Reading List
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                            .zIndex(2f)
+                            .blur(10.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                        tonalElevation = 4.dp
+                    ) {}
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                            .zIndex(2f)
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "My Library",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "${readingList.size} items",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
@@ -535,13 +571,33 @@ fun LocalBookListItem(
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = book.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = book.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (book.isRead) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Finished",
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+                }
                 Text(
                     text = book.author,
                     style = MaterialTheme.typography.bodyMedium,
@@ -556,26 +612,24 @@ fun LocalBookListItem(
 
                 Row(
                     modifier = Modifier
-                        .padding(vertical = 4.dp)
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        .padding(vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     book.publishedDate?.let { date ->
-                        AssistChip(
-                            onClick = { },
-                            label = { Text(date, style = MaterialTheme.typography.labelSmall) },
-                            leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(12.dp)) },
-                            modifier = Modifier.height(24.dp)
-                        )
+                        val year = if (date.length >= 4) date.take(4) else date
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.outline)
+                            Spacer(Modifier.width(4.dp))
+                            Text(year, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        }
                     }
                     book.pageCount?.let { count ->
                         if (count > 0) {
-                            AssistChip(
-                                onClick = { },
-                                label = { Text("$count p", style = MaterialTheme.typography.labelSmall) },
-                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(12.dp)) },
-                                modifier = Modifier.height(24.dp)
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.outline)
+                                Spacer(Modifier.width(4.dp))
+                                Text("$count p", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            }
                         }
                     }
                 }
@@ -682,8 +736,8 @@ fun BookSkeletonItem() {
                 Spacer(modifier = Modifier.height(8.dp))
                 // Reservation for metadata chips
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Box(modifier = Modifier.width(60.dp).height(24.dp).clip(MaterialTheme.shapes.small).shimmerEffect())
-                    Box(modifier = Modifier.width(50.dp).height(24.dp).clip(MaterialTheme.shapes.small).shimmerEffect())
+                    Box(modifier = Modifier.width(30.dp).height(14.dp).clip(MaterialTheme.shapes.small).shimmerEffect())
+                    Box(modifier = Modifier.width(30.dp).height(14.dp).clip(MaterialTheme.shapes.small).shimmerEffect())
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 Box(modifier = Modifier

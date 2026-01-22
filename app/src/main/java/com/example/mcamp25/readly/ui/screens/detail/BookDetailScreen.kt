@@ -6,20 +6,19 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.text.Html
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.*
@@ -48,6 +47,7 @@ fun BookDetailScreen(
 ) {
     val uiState = viewModel.uiState
     val currentRating = viewModel.currentRating
+    val isRead = viewModel.isRead
     val context = LocalContext.current
     val vibrator = remember(context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -125,53 +125,75 @@ fun BookDetailScreen(
                         )
                         
                         Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
-                        ) {
-                            val displayDate = book.volumeInfo.publishedDate ?: initialDate
-                            displayDate?.let { date ->
-                                AssistChip(
-                                    onClick = { },
-                                    label = { Text(date) },
-                                    leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                                )
-                            }
-                            val displayPages = book.volumeInfo.pageCount ?: book.volumeInfo.printedPageCount ?: initialPages
-                            displayPages?.let { count ->
-                                AssistChip(
-                                    onClick = { },
-                                    label = { Text("$count pages") },
-                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
                         
-                        Button(
-                            onClick = { 
-                                // Strong Hardware Vibration for adding a book
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                    vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
-                                } else {
-                                    @Suppress("DEPRECATION")
-                                    vibrator.vibrate(50)
-                                }
-                                viewModel.addToReadingList(book, initialPages, initialDate)
-                            },
-                            modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.secondary,
-                                contentColor = Color.White
-                                )
+                        Row(
+                            modifier = Modifier.wrapContentSize(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Add to Reading List")
+                            Button(
+                                onClick = { 
+                                    // Strong Hardware Vibration for adding a book
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
+                                    } else {
+                                        @Suppress("DEPRECATION")
+                                        vibrator.vibrate(50)
+                                    }
+                                    viewModel.addToReadingList(book, initialPages, initialDate)
+                                },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(36.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondary,
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Add to List", style = MaterialTheme.typography.labelLarge)
+                            }
+
+                            val buttonColor by animateColorAsState(
+                                targetValue = if (isRead) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                label = "buttonColor"
+                            )
+                            val contentColor by animateColorAsState(
+                                targetValue = if (isRead) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                label = "contentColor"
+                            )
+
+                            OutlinedButton(
+                                onClick = {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        vibrator.vibrate(VibrationEffect.createOneShot(30, VibrationEffect.DEFAULT_AMPLITUDE))
+                                    } else {
+                                        @Suppress("DEPRECATION")
+                                        vibrator.vibrate(30)
+                                    }
+                                    viewModel.toggleReadStatus(bookId)
+                                },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(36.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = buttonColor,
+                                    contentColor = contentColor
+                                ),
+                                border = if (isRead) null else ButtonDefaults.outlinedButtonBorder(true)
+                            ) {
+                                Icon(
+                                    imageVector = if (isRead) Icons.Default.Check else Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = contentColor,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = if (isRead) "Finished" else "Mark Read",
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            }
                         }
+
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = book.volumeInfo.title,
