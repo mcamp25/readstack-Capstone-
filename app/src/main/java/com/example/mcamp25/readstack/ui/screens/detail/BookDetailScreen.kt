@@ -25,7 +25,7 @@ fun BookDetailScreen(
     initialPages: Int? = null,
     initialDate: String? = null,
     vm: BookDetailViewModel,
-    onBackClick: () -> Unit
+    onNavigateBack: () -> Unit
 ) {
     val details = vm.details
     val currentRating = vm.currentRating
@@ -98,12 +98,12 @@ fun BookDetailScreen(
         }
 
         // 3. Top Action Bar
-        DetailTopBar(onBackClick = onBackClick)
+        DetailTopBar(onNavigateBack = onNavigateBack)
     }
 }
 
 @Composable
-private fun DetailTopBar(onBackClick: () -> Unit) {
+private fun DetailTopBar(onNavigateBack: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -113,7 +113,7 @@ private fun DetailTopBar(onBackClick: () -> Unit) {
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onBackClick) {
+        IconButton(onClick = onNavigateBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",

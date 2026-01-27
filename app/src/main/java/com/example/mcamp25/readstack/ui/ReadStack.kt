@@ -113,7 +113,7 @@ fun ReadstackApp(onSync: () -> Unit) {
                     initialPages = detail.initialPages,
                     initialDate = detail.initialDate,
                     vm = viewModel(factory = BookDetailViewModel.Factory),
-                    onBackClick = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
         }
