@@ -14,7 +14,7 @@ private const val CHANNEL_ID = "library_sync_channel"
 private const val NOTIFICATION_ID = 1
 
 fun makeStatusNotification(message: String, context: Context) {
-    // 1. Create the NotificationChannel for API 26+
+   // Create the NotificationChannel for API 26+
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         val name = "Library Sync"
         val descriptionText = "Shows notifications for library synchronization"
@@ -27,7 +27,7 @@ fun makeStatusNotification(message: String, context: Context) {
         notificationManager.createNotificationChannel(channel)
     }
 
-    // 2. Build the notification
+    // Build the notification
     val builder = NotificationCompat.Builder(context, CHANNEL_ID)
         .setSmallIcon(android.R.drawable.ic_popup_sync)
         .setContentTitle("Readstack")
@@ -35,7 +35,7 @@ fun makeStatusNotification(message: String, context: Context) {
         .setPriority(NotificationCompat.PRIORITY_DEFAULT)
         .setAutoCancel(true)
 
-    // 3. Show the notification (Check permission for Android 13+)
+    //Show the notification (Check permission for Android 13+)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         if (ActivityCompat.checkSelfPermission(
                 context,

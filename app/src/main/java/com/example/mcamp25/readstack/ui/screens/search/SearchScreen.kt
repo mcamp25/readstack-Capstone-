@@ -35,8 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.mcamp25.readstack.BookSkeletonItem
 import com.example.mcamp25.readstack.data.network.BookItem
+import com.example.mcamp25.readstack.ui.components.BookSkeletonItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,7 +100,7 @@ fun SearchScreen(
                             query = it 
                             viewModel.onQueryChanged(it)
                         },
-                        placeholder = { Text("Search Books") },
+                        placeholder = { Text("Search for books, authors...") },
                         leadingIcon = {
                             IconButton(onClick = { filePickerLauncher.launch("image/*") }) {
                                 if (selectedImageUri != null) {
@@ -109,7 +109,7 @@ fun SearchScreen(
                                             .data(selectedImageUri)
                                             .crossfade(true)
                                             .build(),
-                                        contentDescription = "Selected Image",
+                                        contentDescription = "Selected cover image",
                                         modifier = Modifier
                                             .size(24.dp)
                                             .clip(CircleShape),
@@ -118,7 +118,7 @@ fun SearchScreen(
                                 } else {
                                     Icon(
                                         imageVector = Icons.Default.Add,
-                                        contentDescription = "Upload Image"
+                                        contentDescription = "Upload book cover for visual search"
                                     )
                                 }
                             }
@@ -145,7 +145,7 @@ fun SearchScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Search,
-                                    contentDescription = "Search"
+                                    contentDescription = "Initiate search"
                                 )
                             }
                         },
@@ -179,13 +179,14 @@ fun SearchScreen(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Column {
-                            suggestions.forEach { suggestion ->
+                            suggestions.distinct().forEach { suggestion ->
                                 ListItem(
                                     headlineContent = { Text(suggestion) },
                                     modifier = Modifier.clickable {
                                         query = suggestion
                                         performSearch(suggestion)
                                         keyboardController?.hide()
+                                        viewModel.onQueryChanged("")
                                     },
                                     leadingContent = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) }
                                 )
@@ -227,14 +228,14 @@ fun SearchScreen(
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                         Text(
-                            text = "Start your collection.",
+                            text = "Find your next great read.",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.secondary,
                             textAlign = TextAlign.Center
                         )
                         Text(
-                            text = "Search for the title that inspires you",
+                            text = "Explore millions of titles and build your perfect library.",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
@@ -302,13 +303,13 @@ fun SearchScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Search Results",
+                                text = "Found matching books",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "${state.books.size} found",
+                                text = "${state.books.size} results",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -317,7 +318,7 @@ fun SearchScreen(
                 }
                 is SearchUiState.Error -> { 
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Error fetching books. Please try again.", color = MaterialTheme.colorScheme.error)
+                        Text("We couldn't fetch those books right now. Try again?", color = MaterialTheme.colorScheme.error)
                     }
                 }
             }

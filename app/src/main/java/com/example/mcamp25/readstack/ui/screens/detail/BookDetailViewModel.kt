@@ -27,7 +27,7 @@ sealed interface BookDetailUiState {
 }
 
 class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
-    var uiState: BookDetailUiState by mutableStateOf(BookDetailUiState.Loading)
+    var details: BookDetailUiState by mutableStateOf(BookDetailUiState.Loading)
         private set
 
     var currentRating by mutableIntStateOf(0)
@@ -36,7 +36,7 @@ class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
     var isRead by mutableStateOf(false)
         private set
 
-    var isCurrentlyReading by mutableStateOf(false)
+    var inProgress by mutableStateOf(false)
         private set
 
     private var ratingJob: Job? = null
@@ -45,8 +45,8 @@ class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
 
     fun getBook(id: String) {
         viewModelScope.launch {
-            uiState = BookDetailUiState.Loading
-            uiState = try {
+            details = BookDetailUiState.Loading
+            details = try {
                 val book = RetrofitClient.apiService.getBook(id)
                 observeRating(id)
                 observeReadStatus(id)
@@ -84,7 +84,7 @@ class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
         readingStatusJob?.cancel()
         readingStatusJob = viewModelScope.launch {
             bookDao.getReadingStatus(bookId).collectLatest { status ->
-                isCurrentlyReading = status ?: false
+                inProgress = status ?: false
             }
         }
     }
@@ -105,8 +105,8 @@ class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
     }
 
     fun toggleCurrentlyReading(bookId: String) {
-        val newStatus = !isCurrentlyReading
-        isCurrentlyReading = newStatus
+        val newStatus = !inProgress
+        inProgress = newStatus
         viewModelScope.launch {
             bookDao.updateReadingStatus(bookId, newStatus)
         }
@@ -138,7 +138,7 @@ class BookDetailViewModel(private val bookDao: BookDao) : ViewModel() {
                 publishedDate = finalDate,
                 pageCount = finalPages,
                 isRead = isRead,
-                isCurrentlyReading = isCurrentlyReading
+                isCurrentlyReading = inProgress
             )
             bookDao.insert(entity)
         }

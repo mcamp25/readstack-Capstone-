@@ -10,19 +10,16 @@ import coil.transform.Transformation
 import androidx.core.graphics.createBitmap
 import kotlin.math.abs
 
-/**
- * A sophisticated sharpening transformation that uses a bilateral-style approach
- * to enhance text and edges while suppressing compression noise and pixelation.
- */
+
 class SharpenAndContrastTransformation(
-    private val contrast: Float = 1.35f,     // High contrast for deep, readable covers
-    private val brightness: Float = -10f,    // Slight dimming to prevent highlight blowout
-    private val saturation: Float = 1.25f,   // Vibrant color boost
-    private val sharpenAmount: Float = 4.0f, // Aggressive sharpening for crystal clear text
-    private val threshold: Int = 30          // High threshold to ignore blocky JPEG noise
+    private val contrast: Float = 1.0f,
+    private val brightness: Float = 0f,
+    private val saturation: Float = 1.0f,
+    private val sharpenAmount: Float = 0.7f,
+    private val threshold: Int = 15
 ) : Transformation {
 
-    override val cacheKey: String = "SharpenAndContrast_v15_Crystal(c=$contrast,b=$brightness,s=$saturation,a=$sharpenAmount,t=$threshold)"
+    override val cacheKey: String = "SharpenAndContrast_v16_Safe(c=$contrast,b=$brightness,s=$saturation,a=$sharpenAmount,t=$threshold)"
 
     override suspend fun transform(input: Bitmap, size: Size): Bitmap {
         val width = input.width
@@ -32,8 +29,6 @@ class SharpenAndContrastTransformation(
         input.getPixels(pixels, 0, width, 0, 0, width, height)
         val resultPixels = IntArray(width * height)
 
-        // Adaptive Sharpening Kernel:
-        // Analyzes local variance to distinguish between "text" and "noise".
         for (y in 1 until height - 1) {
             val yOffset = y * width
             for (x in 1 until width - 1) {
@@ -44,10 +39,9 @@ class SharpenAndContrastTransformation(
                 val gC = (c shr 8) and 0xFF
                 val bC = c and 0xFF
 
-                // 8-neighbor analysis for a smoother, noise-resistant mask
                 val neighbors = intArrayOf(
                     pixels[idx - width - 1], pixels[idx - width], pixels[idx - width + 1],
-                    pixels[idx - 1],         /* center */         pixels[idx + 1],
+                    pixels[idx - 1],         pixels[idx + 1],
                     pixels[idx + width - 1], pixels[idx + width], pixels[idx + width + 1]
                 )
 
@@ -68,18 +62,13 @@ class SharpenAndContrastTransformation(
 
                 val variance = abs(diffR) + abs(diffG) + abs(diffB)
                 
-                // Adaptive Protection: Protect highlights (white covers) from blowing out
                 val luma = (rC * 0.299f + gC * 0.587f + bC * 0.114f) / 255f
                 val protection = (1.0f - luma * luma).coerceIn(0.2f, 1.0f)
 
-                // Sharpening Logic:
-                // Only sharpen if the detail is strong enough to be an edge (text),
-                // otherwise leave it smooth to avoid highlighting pixelation.
                 val factor = if (variance > threshold) {
                     ((variance - threshold) / 20f).coerceIn(0f, 1f) * sharpenAmount * protection
                 } else {
-                    // Slight smoothing pass for flat/noisy areas to kill pixelation
-                    -0.2f 
+                    -0.1f 
                 }
 
                 val resR = rC + factor * diffR
@@ -93,7 +82,6 @@ class SharpenAndContrastTransformation(
             }
         }
 
-        // Copy borders to result to avoid edge artifacts
         for (x in 0 until width) {
             resultPixels[x] = pixels[x]
             resultPixels[(height - 1) * width + x] = pixels[(height - 1) * width + x]
@@ -108,7 +96,6 @@ class SharpenAndContrastTransformation(
         val canvas = Canvas(output)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
 
-        // Apply global contrast, brightness, and saturation
         val t = (1.0f - contrast) / 2.0f * 255.0f
         val cm = ColorMatrix(floatArrayOf(
             contrast, 0f, 0f, 0f, t + brightness,
@@ -129,26 +116,17 @@ class SharpenAndContrastTransformation(
     }
 }
 
-/**
- * Safely handles Google Books URLs and constructs a high-resolution FIFE URL.
- * It extracts the unique ID and requests an 800x1200px render for crystal clarity.
- */
-fun String.toHighResBookUrl(): String {
-    // 1. Upgrade to HTTPS and remove edge distortion
-    val clean = this.replace("http:", "https:")
-                   .replace("&edge=curl", "")
-                   .replace("edge=curl", "")
 
-    // 2. Extract the unique Volume/Image ID
-    // Supports both 'id=ID' and '/frontcover/ID' formats
+fun String.toHighResBookUrl(): String {
+    val clean = this.replace("http:", "https:")
+        .replace("&edge=curl", "")
+        .replace("edge=curl", "")
+    
     val idRegex = Regex("(?:id=|frontcover/)([^&? /]+)")
-    val match = idRegex.find(clean)
-    val id = match?.groupValues?.get(1)
+    val id = idRegex.find(clean)?.groupValues?.get(1)
 
     return if (id != null) {
-        // 3. Construct the high-resolution FIFE URL (800x1200px)
-        // We include &zoom=1 as a base, then override with w/h parameters for quality.
-        "https://books.google.com/books/content?id=$id&printsec=frontcover&img=1&zoom=1&w=800&h=1200&source=gbs_api"
+        "https://books.google.com/books/content?id=$id&printsec=frontcover&img=1&zoom=1&source=gbs_api"
     } else {
         clean
     }
